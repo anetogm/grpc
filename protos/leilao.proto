@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package leilao;
+
+// Mensagens para Leilão
+message Leilao {
+    int32 id = 1;
+    string nome = 2;
+    string descricao = 3;
+    double valor_inicial = 4;
+    string inicio = 5;
+    string fim = 6;
+    string status = 7;
+}
+
+message CriarLeilaoRequest {
+    string nome = 1;
+    string descricao = 2;
+    double valor_inicial = 3;
+    string inicio = 4;
+    string fim = 5;
+}
+
+message CriarLeilaoResponse {
+    bool success = 1;
+    string message = 2;
+    int32 leilao_id = 3;
+    Leilao leilao = 4;
+}
+
+message ListarLeiloesRequest {}
+
+message ListarLeiloesResponse {
+    repeated Leilao leiloes = 1;
+}
+
+message RegistrarInteresseRequest {
+    int32 leilao_id = 1;
+    string cliente_id = 2;
+}
+
+message RegistrarInteresseResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message CancelarInteresseRequest {
+    int32 leilao_id = 1;
+    string cliente_id = 2;
+}
+
+message CancelarInteresseResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+// Notificações em tempo real
+message NotificacaoLeilao {
+    string tipo = 1; // "leilao_iniciado", "leilao_finalizado"
+    int32 leilao_id = 2;
+    Leilao leilao = 3;
+}
+
+message StreamNotificacoesRequest {
+    string cliente_id = 1;
+}
+
+// Serviço de Leilão
+service LeilaoService {
+    rpc CriarLeilao(CriarLeilaoRequest) returns (CriarLeilaoResponse);
+    rpc ListarLeiloes(ListarLeiloesRequest) returns (ListarLeiloesResponse);
+    rpc RegistrarInteresse(RegistrarInteresseRequest) returns (RegistrarInteresseResponse);
+    rpc CancelarInteresse(CancelarInteresseRequest) returns (CancelarInteresseResponse);
+    rpc StreamNotificacoes(StreamNotificacoesRequest) returns (stream NotificacaoLeilao);
+}

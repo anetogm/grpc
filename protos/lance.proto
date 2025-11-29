@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package lance;
+
+// Mensagens para Lance
+message Lance {
+    int32 leilao_id = 1;
+    string user_id = 2;
+    double valor = 3;
+    string timestamp = 4;
+}
+
+message EnviarLanceRequest {
+    int32 leilao_id = 1;
+    string user_id = 2;
+    double valor = 3;
+}
+
+message EnviarLanceResponse {
+    bool success = 1;
+    string message = 2;
+    bool valido = 3;
+}
+
+// Notificações de lance
+message NotificacaoLance {
+    string tipo = 1; // "novo_lance_valido", "lance_invalido", "vencedor_leilao"
+    int32 leilao_id = 2;
+    string user_id = 3;
+    double valor = 4;
+    string id_vencedor = 5;
+}
+
+message StreamLancesRequest {
+    string cliente_id = 1;
+}
+
+// Informação de leilão ativo
+message LeilaoAtivo {
+    int32 id = 1;
+    string nome = 2;
+    string descricao = 3;
+    double valor_inicial = 4;
+    string inicio = 5;
+    string fim = 6;
+}
+
+message IniciarLeilaoRequest {
+    LeilaoAtivo leilao = 1;
+}
+
+message IniciarLeilaoResponse {
+    bool success = 1;
+}
+
+message FinalizarLeilaoRequest {
+    int32 leilao_id = 1;
+}
+
+message FinalizarLeilaoResponse {
+    bool success = 1;
+    string id_vencedor = 2;
+    double valor = 3;
+}
+
+// Serviço de Lance
+service LanceService {
+    rpc EnviarLance(EnviarLanceRequest) returns (EnviarLanceResponse);
+    rpc StreamLances(StreamLancesRequest) returns (stream NotificacaoLance);
+    rpc IniciarLeilao(IniciarLeilaoRequest) returns (IniciarLeilaoResponse);
+    rpc FinalizarLeilao(FinalizarLeilaoRequest) returns (FinalizarLeilaoResponse);
+}

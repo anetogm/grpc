@@ -1,234 +1,239 @@
-from flask import Flask, jsonify, render_template, request, redirect
-from flask_cors import CORS
-from flask_sse import sse
-import requests
-import secrets
+import grpc
+from concurrent import futures
 import threading
-import pika
-import json
-import time
-import redis
+import sys
+import os
+
+# Adicionar diretório generated ao path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'generated'))
+
+import gateway_pb2
+import gateway_pb2_grpc
+import leilao_pb2
+import leilao_pb2_grpc
+import lance_pb2
+import lance_pb2_grpc
+import pagamento_pb2
+import pagamento_pb2_grpc
 
 lock = threading.Lock()
-rabbitmq_lock = threading.Lock()
-channel = None
-app = Flask(__name__)
-app.config["REDIS_URL"] = "redis://localhost:6379/0"
-app.register_blueprint(sse, url_prefix='/stream')
+streams_ativos = {}  # {cliente_id: [queue]}
 
-app.secret_key = secrets.token_hex(16)
-CORS(app)
+# Endereços dos microsserviços
+LEILAO_SERVICE = 'localhost:50051'
+LANCE_SERVICE = 'localhost:50052'
+PAGAMENTO_SERVICE = 'localhost:50053'
 
-leiloes = []
-redis_client = redis.from_url(app.config["REDIS_URL"])
 
-url_mslance = 'http://localhost:4445'
-url_msleilao = 'http://localhost:4447'
-
-def callback_lance_validado(ch, method, properties, body):
-    print('[App] Recebido em lance_validado:', body)
-    try:
-        data = json.loads(body.decode())
-        print(data)
-        leilao_id = data.get('leilao_id')
-        cliente_id = data.get('user_id')
-        valor = data.get('valor')
+class GatewayServicer(gateway_pb2_grpc.GatewayServiceServicer):
+    """API Gateway que agrega todos os microsserviços"""
+    
+    def __init__(self):
+        # Criar conexões persistentes com os microsserviços
+        self.leilao_channel = grpc.insecure_channel(LEILAO_SERVICE)
+        self.lance_channel = grpc.insecure_channel(LANCE_SERVICE)
+        self.pagamento_channel = grpc.insecure_channel(PAGAMENTO_SERVICE)
+        
+        self.leilao_stub = leilao_pb2_grpc.LeilaoServiceStub(self.leilao_channel)
+        self.lance_stub = lance_pb2_grpc.LanceServiceStub(self.lance_channel)
+        self.pagamento_stub = pagamento_pb2_grpc.PagamentoServiceStub(self.pagamento_channel)
+        
+        print("[Gateway] Conexões com microsserviços estabelecidas")
+    
+    # ========== MÉTODOS DE LEILÃO ==========
+    
+    def CriarLeilao(self, request, context):
+        """Criar novo leilão"""
+        try:
+            response = self.leilao_stub.CriarLeilao(request)
+            return response
+        except Exception as e:
+            print(f"[Gateway] Erro ao criar leilão: {e}")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return leilao_pb2.CriarLeilaoResponse(success=False, message=str(e))
+    
+    def ListarLeiloes(self, request, context):
+        """Listar todos os leilões"""
+        try:
+            response = self.leilao_stub.ListarLeiloes(request)
+            return response
+        except Exception as e:
+            print(f"[Gateway] Erro ao listar leilões: {e}")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return leilao_pb2.ListarLeiloesResponse(leiloes=[])
+    
+    def RegistrarInteresse(self, request, context):
+        """Registrar interesse em um leilão"""
+        try:
+            response = self.leilao_stub.RegistrarInteresse(request)
+            return response
+        except Exception as e:
+            print(f"[Gateway] Erro ao registrar interesse: {e}")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return leilao_pb2.RegistrarInteresseResponse(success=False, message=str(e))
+    
+    def CancelarInteresse(self, request, context):
+        """Cancelar interesse em um leilão"""
+        try:
+            response = self.leilao_stub.CancelarInteresse(request)
+            return response
+        except Exception as e:
+            print(f"[Gateway] Erro ao cancelar interesse: {e}")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return leilao_pb2.CancelarInteresseResponse(success=False, message=str(e))
+    
+    # ========== MÉTODOS DE LANCE ==========
+    
+    def EnviarLance(self, request, context):
+        """Enviar um lance"""
+        try:
+            response = self.lance_stub.EnviarLance(request)
+            return response
+        except Exception as e:
+            print(f"[Gateway] Erro ao enviar lance: {e}")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return lance_pb2.EnviarLanceResponse(success=False, message=str(e), valido=False)
+    
+    # ========== MÉTODOS DE PAGAMENTO ==========
+    
+    def ProcessarPagamento(self, request, context):
+        """Processar pagamento"""
+        try:
+            response = self.pagamento_stub.ProcessarPagamento(request)
+            return response
+        except Exception as e:
+            print(f"[Gateway] Erro ao processar pagamento: {e}")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return pagamento_pb2.ProcessarPagamentoResponse(success=False, message=str(e))
+    
+    # ========== STREAM UNIFICADO DE NOTIFICAÇÕES ==========
+    
+    def StreamNotificacoesUnificadas(self, request, context):
+        """Stream unificado de todas as notificações para um cliente"""
+        cliente_id = request.cliente_id
+        print(f"[Gateway] Cliente {cliente_id} conectado ao stream unificado")
+        
+        import queue
+        notification_queue = queue.Queue()
+        
         with lock:
-            with app.app_context():
-
-                interessados = redis_client.smembers(f'interesses:{leilao_id}')
-                for cid in interessados:
-                    cid_str = cid.decode('utf-8')
-                    sse.publish({
-                        'tipo': 'novo_lance_valido',
-                        'leilao_id': leilao_id,
-                        'valor': valor,
-                        'cliente_id_lance': cliente_id
-                    }, channel=cid_str)
-    except Exception as e:
-        print(f'Erro ao processar lance_validado: {e}')
-
-def callback_lance_invalidado(ch, method, properties, body):
-    print('[App] Recebido em lance_invalidado:', body)
-    try:
-        data = json.loads(body.decode())
-        cliente_id = data.get('user_id')
+            if cliente_id not in streams_ativos:
+                streams_ativos[cliente_id] = []
+            streams_ativos[cliente_id].append(notification_queue)
         
-        with app.app_context():
-            sse.publish({
-                'tipo': 'lance_invalido',
-                'leilao_id': data.get('leilao_id'),
-                'valor': data.get('valor')
-            }, channel=cliente_id)
-    except Exception as e:
-        print(f'Erro ao processar lance_invalidado: {e}')
-
-def callback_leilao_vencedor(ch, method, properties, body):
-    print('[App] Recebido em leilao_vencedor:', body)
-    try:
-        data = json.loads(body.decode())
-        leilao_id = data.get('leilao_id')
-        id_vencedor = data.get('id_vencedor', 'user_id')
-        valor = data.get('valor')
-        print(f"Isso é o ganhador {id_vencedor} && {valor}")
+        # Iniciar threads para receber notificações dos microsserviços
+        stop_event = threading.Event()
         
-        with lock:
-            interessados = redis_client.smembers(f'interesses:{leilao_id}')
-            
-        with app.app_context():
-            for cid in interessados:
-                cid_str = cid.decode('utf-8')
-                sse.publish({
-                    'tipo': 'vencedor_leilao',
-                    'leilao_id': leilao_id,
-                    'id_vencedor': id_vencedor,
-                    'valor': valor
-                }, channel=cid_str)
-    except Exception as e:
-        print(f'Erro ao processar leilao_vencedor: {e}')
-
-def callback_link_pagamento(ch, method, properties, body):
-    print('[App] Recebido em link_pagamento:', body)
-    try:
-        data = json.loads(body.decode())
-        cliente_id = data.get('cliente_id')  
-        link_pagamento = data.get('link_pagamento')
+        def forward_leilao_notifications():
+            """Receber e encaminhar notificações de leilão"""
+            try:
+                req = leilao_pb2.StreamNotificacoesRequest(cliente_id=cliente_id)
+                for notif in self.leilao_stub.StreamNotificacoes(req):
+                    if stop_event.is_set():
+                        break
+                    # Converter para notificação unificada
+                    unified = gateway_pb2.NotificacaoUnificada(
+                        tipo=notif.tipo,
+                        leilao_id=notif.leilao_id,
+                        leilao=notif.leilao
+                    )
+                    notification_queue.put(unified)
+            except Exception as e:
+                print(f"[Gateway] Erro no stream de leilão: {e}")
         
-        with app.app_context():
-            sse.publish({
-                'tipo': 'link_pagamento',
-                'link_pagamento': link_pagamento
-            }, channel=cliente_id)
-    except Exception as e:
-        print(f'Erro ao processar link_pagamento: {e}')
-
-def callback_status_pagamento(ch, method, properties, body):
-    print('[App] Recebido em status_pagamento:', body)
-    try:
-        data = json.loads(body.decode())
-        cliente_id = data.get('cliente_id')
-        status = data.get('status')
-        print(f"Status do pagamento: {type(status)}")
+        def forward_lance_notifications():
+            """Receber e encaminhar notificações de lance"""
+            try:
+                req = lance_pb2.StreamLancesRequest(cliente_id=cliente_id)
+                for notif in self.lance_stub.StreamLances(req):
+                    if stop_event.is_set():
+                        break
+                    # Converter para notificação unificada
+                    unified = gateway_pb2.NotificacaoUnificada(
+                        tipo=notif.tipo,
+                        leilao_id=notif.leilao_id,
+                        user_id=notif.user_id,
+                        valor=notif.valor,
+                        id_vencedor=notif.id_vencedor
+                    )
+                    notification_queue.put(unified)
+            except Exception as e:
+                print(f"[Gateway] Erro no stream de lance: {e}")
         
-        with app.app_context():
-            sse.publish({
-                'tipo': 'status_pagamento',
-                'status': status
-            }, channel=cliente_id)
-    except Exception as e:
-        print(f'Erro ao processar status_pagamento: {e}')
+        def forward_pagamento_notifications():
+            """Receber e encaminhar notificações de pagamento"""
+            try:
+                req = pagamento_pb2.StreamPagamentosRequest(cliente_id=cliente_id)
+                for notif in self.pagamento_stub.StreamPagamentos(req):
+                    if stop_event.is_set():
+                        break
+                    # Converter para notificação unificada
+                    unified = gateway_pb2.NotificacaoUnificada(
+                        tipo=notif.tipo,
+                        leilao_id=notif.leilao_id,
+                        user_id=notif.cliente_id,
+                        valor=notif.valor,
+                        link_pagamento=notif.link_pagamento,
+                        status=notif.status
+                    )
+                    notification_queue.put(unified)
+            except Exception as e:
+                print(f"[Gateway] Erro no stream de pagamento: {e}")
+        
+        # Iniciar threads de forward
+        threads = [
+            threading.Thread(target=forward_leilao_notifications, daemon=True),
+            threading.Thread(target=forward_lance_notifications, daemon=True),
+            threading.Thread(target=forward_pagamento_notifications, daemon=True)
+        ]
+        
+        for t in threads:
+            t.start()
+        
+        # Enviar notificações ao cliente
+        try:
+            while context.is_active():
+                try:
+                    notificacao = notification_queue.get(timeout=1.0)
+                    yield notificacao
+                except:
+                    pass
+        finally:
+            # Limpar ao desconectar
+            stop_event.set()
+            with lock:
+                if cliente_id in streams_ativos:
+                    streams_ativos[cliente_id].remove(notification_queue)
+                    if len(streams_ativos[cliente_id]) == 0:
+                        del streams_ativos[cliente_id]
+            print(f"[Gateway] Cliente {cliente_id} desconectado do stream unificado")
 
-def start_consumer():
-    global channel
-    connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-    channel = connection.channel()
 
-    channel.basic_consume(queue='lance_validado', on_message_callback=callback_lance_validado, auto_ack=True)
-    channel.basic_consume(queue='lance_invalidado', on_message_callback=callback_lance_invalidado, auto_ack=True)
-
-    channel.exchange_declare(exchange='leilao_vencedor', exchange_type='fanout')
-    result = channel.queue_declare(queue='', exclusive=True)
-    queue_name = result.method.queue
-    channel.queue_bind(exchange='leilao_vencedor', queue=queue_name)
-    channel.basic_consume(queue=queue_name, on_message_callback=callback_leilao_vencedor, auto_ack=True)
+def serve():
+    """Iniciar API Gateway gRPC"""
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    gateway_pb2_grpc.add_GatewayServiceServicer_to_server(GatewayServicer(), server)
+    server.add_insecure_port('[::]:50054')
+    server.start()
+    print("[Gateway] API Gateway gRPC iniciado na porta 50054")
+    print("[Gateway] Conectado aos microsserviços:")
+    print(f"  - Leilão: {LEILAO_SERVICE}")
+    print(f"  - Lance: {LANCE_SERVICE}")
+    print(f"  - Pagamento: {PAGAMENTO_SERVICE}")
     
-    channel.basic_consume(queue='link_pagamento', on_message_callback=callback_link_pagamento, auto_ack=True)
-    channel.basic_consume(queue='status_pagamento', on_message_callback=callback_status_pagamento, auto_ack=True)
+    try:
+        server.wait_for_termination()
+    except KeyboardInterrupt:
+        print("[Gateway] Servidor encerrado")
+        server.stop(0)
 
-    print(' [*] Consumer started. Waiting messages.')
-    channel.start_consuming()
-
-@app.get("/")
-def index():
-    return render_template("index.html")
-
-@app.get("/pagamento")
-def pagamento_page():
-    return render_template("pagamento.html")
-
-@app.get("/leiloes")
-def get_leiloes():
-    leiloes = requests.get(url_msleilao + "/leiloes")
-    return jsonify(leiloes.json())
-
-@app.get("/cadastra_leilao")
-def cadastra_leilao_page():
-    return render_template("cadastra_leilao.html")
-
-@app.get("/lance")
-def lance_page():
-    return render_template("lance.html")
-
-@app.post("/cadastra_leilao")
-def cadastra_leilao():
-        item = (request.form.get('item') or '').strip()
-        descricao = request.form.get('descricao', '')
-        valor_inicial = request.form.get('valor_inicial', 0)
-        inicio = request.form.get('inicio', '')
-        fim = request.form.get('fim', '')
-
-        if not item:
-            return jsonify({'error': 'item é obrigatório'}), 400
-
-        next_id = str(max(int(l['id']) for l in leiloes) + 1) if leiloes else '1'
-        novo = {'id': next_id, 'item': item, 'descricao': descricao, 'valor_inicial': valor_inicial, 'inicio': inicio, 'fim': fim}
-
-        resp = requests.post(url_msleilao + "/cadastra_leilao", json=novo, timeout=3)
-        resp.raise_for_status()
-
-        leiloes.append(novo)
-        return redirect("/cadastra_leilao?success=1")
-
-@app.post("/lance")
-def lance():
-    data = request.get_json()
-    leilao_id = data.get("leilao_id")
-    user_id = data.get("user_id")
-    valor = data.get("valor")
-
-    if not leilao_id or not user_id or not valor:
-        return jsonify({"error": "Dados incompletos"}), 400
-
-    resp = requests.post(url_mslance + "/lance", json=data)
-    if resp.status_code not in range(200, 300):
-        return jsonify({"error": "Erro ao enviar lance"}), 500
-    return jsonify({"message": "Lance enviado com sucesso"})
-
-
-@app.post("/registrar_interesse")
-def registrar_interesse():
-    data = request.get_json()
-    leilao_id = data.get('leilao_id')
-    cliente_id = data.get('cliente_id')
-    
-    if not leilao_id or not cliente_id:
-        return jsonify({'error': 'leilao_id e cliente_id são obrigatórios'}), 400
-    
-    with lock:
-        redis_client.sadd(f'interesses:{leilao_id}', cliente_id)
-    
-    return jsonify({'message': 'Interesse registrado com sucesso'})
-
-@app.post("/cancelar_interesse")
-def cancelar_interesse():
-    data = request.get_json()
-    leilao_id = data.get('leilao_id')
-    cliente_id = data.get('cliente_id')
-    
-    if not leilao_id or not cliente_id:
-        return jsonify({'error': 'leilao_id e cliente_id são obrigatórios'}), 400
-    
-    with lock:
-        redis_client.srem(f'interesses:{leilao_id}', cliente_id)
-
-        if redis_client.scard(f'interesses:{leilao_id}') == 0:
-            redis_client.delete(f'interesses:{leilao_id}')
-    
-    return jsonify({'message': 'Interesse cancelado com sucesso'})
 
 if __name__ == "__main__":
-    t = threading.Thread(target=start_consumer, daemon=True)
-    t.start()
-    time.sleep(1)
-    
-    app.run(host="127.0.0.1", port=4444, debug=False, use_reloader=False)
+    print("[Gateway] Iniciando API Gateway gRPC...")
+    serve()
