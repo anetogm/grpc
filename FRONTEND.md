@@ -9,11 +9,13 @@ O backend foi **completamente migrado para gRPC**, mas o frontend ainda precisa 
 ### Opção 1: gRPC-Web com Envoy (Recomendado para Produção)
 
 #### Passo 1: Instalar gRPC-Web
+
 ```bash
 npm install grpc-web
 ```
 
 #### Passo 2: Gerar stubs JavaScript
+
 ```bash
 protoc -I=./protos leilao.proto lance.proto pagamento.proto gateway.proto \
   --js_out=import_style=commonjs:./static/generated \
@@ -21,7 +23,9 @@ protoc -I=./protos leilao.proto lance.proto pagamento.proto gateway.proto \
 ```
 
 #### Passo 3: Configurar Envoy
+
 Criar `envoy.yaml`:
+
 ```yaml
 static_resources:
   listeners:
@@ -80,17 +84,25 @@ static_resources:
 ```
 
 Executar Envoy:
+
 ```powershell
 docker run -d -p 8080:8080 -v ${PWD}/envoy.yaml:/etc/envoy/envoy.yaml:ro envoyproxy/envoy:v1.28-latest
 ```
 
 #### Passo 4: Código JavaScript
+
 ```javascript
-const {GatewayServiceClient} = require('./static/generated/gateway_grpc_web_pb');
-const {ListarLeiloesRequest, RegistrarInteresseRequest, StreamNotificacoesUnificadasRequest} = require('./static/generated/leilao_pb');
+const {
+  GatewayServiceClient,
+} = require("./static/generated/gateway_grpc_web_pb");
+const {
+  ListarLeiloesRequest,
+  RegistrarInteresseRequest,
+  StreamNotificacoesUnificadasRequest,
+} = require("./static/generated/leilao_pb");
 
 // Conectar ao Envoy
-const client = new GatewayServiceClient('http://localhost:8080');
+const client = new GatewayServiceClient("http://localhost:8080");
 
 // Listar leilões
 const request = new ListarLeiloesRequest();
@@ -98,7 +110,7 @@ client.listarLeiloes(request, {}, (err, response) => {
   if (err) {
     console.error(err);
   } else {
-    response.getLeiloesList().forEach(leilao => {
+    response.getLeiloesList().forEach((leilao) => {
       console.log(`${leilao.getId()}: ${leilao.getNome()}`);
     });
   }
@@ -106,107 +118,21 @@ client.listarLeiloes(request, {}, (err, response) => {
 
 // Stream de notificações
 const streamRequest = new StreamNotificacoesUnificadasRequest();
-streamRequest.setClienteId('user123');
+streamRequest.setClienteId("user123");
 
 const stream = client.streamNotificacoesUnificadas(streamRequest, {});
-stream.on('data', (notificacao) => {
-  console.log('Notificação:', notificacao.getTipo());
+stream.on("data", (notificacao) => {
+  console.log("Notificação:", notificacao.getTipo());
 });
-stream.on('error', (err) => {
-  console.error('Erro no stream:', err);
+stream.on("error", (err) => {
+  console.error("Erro no stream:", err);
 });
-stream.on('end', () => {
-  console.log('Stream finalizado');
+stream.on("end", () => {
+  console.log("Stream finalizado");
 });
 ```
 
 ---
-
-### Opção 2: grpcwebproxy (Mais Simples, para Desenvolvimento)
-
-#### Instalar:
-```bash
-go install github.com/improbable-eng/grpc-web/go/grpcwebproxy@latest
-```
-
-#### Executar:
-```powershell
-grpcwebproxy --backend_addr=localhost:50054 --run_tls_server=false --allow_all_origins --server_http_max_read_timeout=10m
-```
-
-Usar o mesmo código JavaScript do Opção 1, mas conectando em `http://localhost:8080`.
-
----
-
-### Opção 3: Servidor Flask Simples como Bridge (Temporário)
-
-Criar um servidor Flask que faz bridge entre REST e gRPC:
-
-```python
-from flask import Flask, jsonify, request, render_template
-from flask_cors import CORS
-import grpc
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'generated'))
-import gateway_pb2
-import gateway_pb2_grpc
-import leilao_pb2
-import lance_pb2
-
-app = Flask(__name__)
-CORS(app)
-
-# Conectar ao Gateway gRPC
-channel = grpc.insecure_channel('localhost:50054')
-gateway_stub = gateway_pb2_grpc.GatewayServiceStub(channel)
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/api/leiloes', methods=['GET'])
-def get_leiloes():
-    response = gateway_stub.ListarLeiloes(leilao_pb2.ListarLeiloesRequest())
-    leiloes = []
-    for leilao in response.leiloes:
-        leiloes.append({
-            'id': leilao.id,
-            'nome': leilao.nome,
-            'descricao': leilao.descricao,
-            'valor_inicial': leilao.valor_inicial,
-            'status': leilao.status
-        })
-    return jsonify(leiloes)
-
-@app.route('/api/lance', methods=['POST'])
-def enviar_lance():
-    data = request.json
-    response = gateway_stub.EnviarLance(lance_pb2.EnviarLanceRequest(
-        leilao_id=data['leilao_id'],
-        user_id=data['user_id'],
-        valor=data['valor']
-    ))
-    return jsonify({
-        'success': response.success,
-        'message': response.message,
-        'valido': response.valido
-    })
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
-```
-
-Manter os arquivos `static/` e `templates/` atuais, mas trocar as URLs para apontar para este bridge.
-
----
-
-## Recomendação
-
-Para um projeto de produção, use **Opção 1 (Envoy)**.  
-Para desenvolvimento rápido, use **Opção 3 (Flask Bridge)**.  
-Para aprendizado de gRPC-Web, use **Opção 2 (grpcwebproxy)**.
 
 ## Próximos Passos
 

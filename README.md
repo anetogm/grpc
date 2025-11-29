@@ -45,7 +45,7 @@ Abra **4 terminais** separados e execute:
 # Terminal 1 - Microsserviço de Leilão
 python services/ms_leilao.py
 
-# Terminal 2 - Microsserviço de Lance  
+# Terminal 2 - Microsserviço de Lance
 python services/ms_lance.py
 
 # Terminal 3 - Microsserviço de Pagamento
@@ -63,17 +63,18 @@ python services/pagamento.py
 
 ## 📡 Portas dos Serviços
 
-| Serviço | Porta | Protocolo |
-|---------|-------|-----------|
-| ms_leilao | 50051 | gRPC |
-| ms_lance | 50052 | gRPC |
-| ms_pagamento | 50053 | gRPC |
-| API Gateway | 50054 | gRPC |
-| Serv. Externo | 5001 | HTTP (REST) |
+| Serviço       | Porta | Protocolo   |
+| ------------- | ----- | ----------- |
+| ms_leilao     | 50051 | gRPC        |
+| ms_lance      | 50052 | gRPC        |
+| ms_pagamento  | 50053 | gRPC        |
+| API Gateway   | 50054 | gRPC        |
+| Serv. Externo | 5001  | HTTP (REST) |
 
 ## 📝 Definições dos Serviços
 
 ### LeilaoService (porta 50051)
+
 - `CriarLeilao` - Criar novo leilão
 - `ListarLeiloes` - Listar leilões ativos
 - `RegistrarInteresse` - Cliente registra interesse
@@ -81,53 +82,62 @@ python services/pagamento.py
 - `StreamNotificacoes` - Stream de notificações do leilão (Server Streaming)
 
 ### LanceService (porta 50052)
+
 - `EnviarLance` - Enviar lance para leilão
 - `IniciarLeilao` - Notificar início de leilão (chamado por ms_leilao)
 - `FinalizarLeilao` - Notificar fim de leilão (chamado por ms_leilao)
 - `StreamLances` - Stream de notificações de lances (Server Streaming)
 
 ### PagamentoService (porta 50053)
+
 - `ProcessarPagamento` - Processar pagamento
 - `NotificarVencedor` - Notificar vencedor (chamado por ms_lance)
 - `StreamPagamentos` - Stream de notificações de pagamento (Server Streaming)
 
 ### GatewayService (porta 50054)
+
 - Agrega todos os métodos dos serviços acima
 - `StreamNotificacoesUnificadas` - Stream unificado de todas as notificações (Server Streaming)
 
 ## 🔄 Fluxo de Comunicação
 
 ### 1. Criar Leilão
+
 ```
 Frontend → Gateway.CriarLeilao → LeilaoService.CriarLeilao
 ```
 
 ### 2. Registrar Interesse
+
 ```
 Frontend → Gateway.RegistrarInteresse → LeilaoService.RegistrarInteresse
 ```
 
 ### 3. Conectar ao Stream
+
 ```
 Frontend → Gateway.StreamNotificacoesUnificadas →
   → LeilaoService.StreamNotificacoes
-  → LanceService.StreamLances  
+  → LanceService.StreamLances
   → PagamentoService.StreamPagamentos
 ```
 
 ### 4. Início do Leilão
+
 ```
 ms_leilao (timer) → LanceService.IniciarLeilao
 ms_leilao → LeilaoService.StreamNotificacoes → Gateway → Frontend
 ```
 
 ### 5. Enviar Lance
+
 ```
 Frontend → Gateway.EnviarLance → LanceService.EnviarLance
 LanceService valida lance → LanceService.StreamLances → Gateway → Frontend
 ```
 
 ### 6. Finalizar Leilão
+
 ```
 ms_leilao (timer) → LanceService.FinalizarLeilao
 LanceService → PagamentoService.NotificarVencedor
@@ -140,6 +150,7 @@ PagamentoService.StreamPagamentos → Gateway → Frontend
 Para conectar um frontend web JavaScript aos serviços gRPC, você tem 3 opções:
 
 ### Opção 1: Envoy Proxy (Recomendado)
+
 ```yaml
 # envoy.yaml
 static_resources:
@@ -192,16 +203,19 @@ static_resources:
 ```
 
 Executar:
+
 ```powershell
 docker run -d -p 8080:8080 -v ${PWD}/envoy.yaml:/etc/envoy/envoy.yaml envoyproxy/envoy:v1.28-latest
 ```
 
 ### Opção 2: grpcwebproxy
+
 ```powershell
 grpcwebproxy --backend_addr=localhost:50054 --run_tls_server=false --allow_all_origins
 ```
 
 ### Opção 3: Cliente gRPC Python (para testes)
+
 ```python
 import grpc
 import gateway_pb2
@@ -242,6 +256,7 @@ grpcurl -plaintext -d '{"cliente_id": "user123"}' localhost:50054 gateway.Gatewa
 ## ✅ Mudanças Implementadas
 
 ### ❌ Removido
+
 - ✅ Flask e todas as rotas REST
 - ✅ RabbitMQ e toda comunicação pub/sub
 - ✅ Redis para gerenciar interesses
@@ -249,6 +264,7 @@ grpcurl -plaintext -d '{"cliente_id": "user123"}' localhost:50054 gateway.Gatewa
 - ✅ Dependências: `flask`, `flask-cors`, `flask-sse`, `pika`, `redis`
 
 ### ✅ Adicionado
+
 - ✅ Arquivos `.proto` para definir contratos gRPC
 - ✅ Servidores gRPC em todos os microsserviços
 - ✅ API Gateway gRPC que agrega todos os serviços
@@ -266,15 +282,19 @@ grpcurl -plaintext -d '{"cliente_id": "user123"}' localhost:50054 gateway.Gatewa
 ## 🐛 Troubleshooting
 
 ### Erro: "No module named 'gateway_pb2'"
+
 Execute a geração dos arquivos proto:
+
 ```powershell
 python -m grpc_tools.protoc -I./protos --python_out=./generated --grpc_python_out=./generated ./protos/*.proto
 ```
 
 ### Erro: "failed to connect to all addresses"
+
 Verifique se os microsserviços estão rodando nas portas corretas.
 
 ### Frontend não conecta
+
 Configure o Envoy Proxy ou grpcwebproxy para fazer a ponte entre HTTP/1.1 e HTTP/2.
 
 ## 📄 Licença

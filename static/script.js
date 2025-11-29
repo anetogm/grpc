@@ -1,5 +1,16 @@
-let baseUrl = "http://localhost:4444/";
+// Importar bibliotecas gRPC-Web geradas
+const { GatewayServiceClient } = require('./generated/gateway_grpc_web_pb');
+const { 
+  ListarLeiloesRequest, 
+  RegistrarInteresseRequest, 
+  CancelarInteresseRequest,
+  StreamNotificacoesUnificadasRequest 
+} = require('./generated/gateway_pb');
+
+// Cliente gRPC-Web (conecta ao Envoy Proxy)
+const grpcClient = new GatewayServiceClient('http://localhost:8080', null, null);
 let clienteId = getUserIdFromSessionStorage();
+let notificationStream = null;
 
 function nowForDatetimeLocal() {
   const now = new Date();
@@ -9,47 +20,62 @@ function nowForDatetimeLocal() {
   return local.toISOString().slice(0, 16);
 }
 
-async function buscaLeiloes() {
-  const url = baseUrl + "leiloes";
-  try {
-    const res = await fetch(url);
-    const body = await res.json();
-    renderLeiloes(body);
-  } catch (e) {
-    document.getElementById("demo").textContent = "Erro ao buscar leilões";
-  }
+function buscaLeiloes() {
+  const request = new ListarLeiloesRequest();
+  
+  grpcClient.listarLeiloes(request, {}, (err, response) => {
+    if (err) {
+      console.error("Erro ao buscar leilões:", err);
+      document.getElementById("demo").textContent = "Erro ao buscar leilões: " + err.message;
+      return;
+    }
+    
+    const leiloes = response.getLeiloesList().map(leilao => ({
+      id: leilao.getId(),
+      nome: leilao.getNome(),
+      descricao: leilao.getDescricao(),
+      data_inicio: leilao.getDataInicio(),
+      data_fim: leilao.getDataFim(),
+      valor_minimo: leilao.getValorMinimo(),
+      status: leilao.getStatus()
+    }));
+    
+    renderLeiloes(leiloes);
+  });
 }
 
-async function registrarInteresse(leilaoId) {
-  console.log("Tentando registrar interesse:", leilaoId, clienteId); // Adicione isso
-  try {
-    const res = await fetch(`${baseUrl}registrar_interesse`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ leilao_id: leilaoId, cliente_id: clienteId }),
-    });
-    console.log("Resposta:", res.status, res.statusText);
-    if (!res.ok) throw new Error(`Erro HTTP: ${res.status}`);
-    const data = await res.json();
-    alert(data.message);
-  } catch (e) {
-    console.error("Erro:", e);
-    alert("Erro ao registrar interesse: " + e.message);
-  }
+function registrarInteresse(leilaoId) {
+  console.log("Tentando registrar interesse:", leilaoId, clienteId);
+  
+  const request = new RegistrarInteresseRequest();
+  request.setLeilaoId(leilaoId);
+  request.setClienteId(clienteId);
+  
+  grpcClient.registrarInteresse(request, {}, (err, response) => {
+    if (err) {
+      console.error("Erro:", err);
+      alert("Erro ao registrar interesse: " + err.message);
+      return;
+    }
+    
+    alert(response.getMessage());
+  });
 }
 
-async function cancelarInteresse(leilaoId) {
-  try {
-    const res = await fetch(`${baseUrl}cancelar_interesse`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ leilao_id: leilaoId, cliente_id: clienteId }),
-    });
-    const data = await res.json();
-    alert(data.message);
-  } catch (e) {
-    alert("Erro ao cancelar interesse");
-  }
+function cancelarInteresse(leilaoId) {
+  const request = new CancelarInteresseRequest();
+  request.setLeilaoId(leilaoId);
+  request.setClienteId(clienteId);
+  
+  grpcClient.cancelarInteresse(request, {}, (err, response) => {
+    if (err) {
+      console.error("Erro:", err);
+      alert("Erro ao cancelar interesse: " + err.message);
+      return;
+    }
+    
+    alert(response.getMessage());
+  });
 }
 
 function renderLeiloes(lista) {
@@ -83,45 +109,55 @@ function renderLeiloes(lista) {
   });
 }
 
-function conectarSSE() {
-  eventSource = new EventSource(`${baseUrl}stream?channel=${clienteId}`);
-
-  eventSource.onmessage = function (event) {
+function conectarStreamGrpc() {
+  const request = new StreamNotificacoesUnificadasRequest();
+  request.setClienteId(clienteId);
+  
+  // Criar stream de notificações
+  notificationStream = grpcClient.streamNotificacoesUnificadas(request, {});
+  
+  notificationStream.on('data', (notificacao) => {
+    console.log("Notificação gRPC:", notificacao.toObject());
+    
+    const tipo = notificacao.getTipo();
+    const dados = notificacao.getDados();
+    
     try {
-      const data = JSON.parse(event.data);
-      console.log("Notificação SSE:", data);
-      if (data.tipo === "novo_lance_valido") {
-        alert(
-          `Novo lance válido no leilão ${data.leilao_id}: R$ ${data.valor}`
-        );
+      const data = JSON.parse(dados);
+      
+      if (tipo === "novo_lance_valido") {
+        alert(`Novo lance válido no leilão ${data.leilao_id}: R$ ${data.valor}`);
         buscaLeiloes();
-      } else if (data.tipo === "lance_invalido") {
+      } else if (tipo === "lance_invalido") {
         alert("Seu lance foi inválido.");
-      } else if (data.tipo === "vencedor_leilao") {
-        alert(
-          `Leilão ${data.leilao_id} encerrado. Vencedor: ${data.id_vencedor}`
-        );
-      } else if (data.tipo === "link_pagamento") {
+      } else if (tipo === "vencedor_leilao") {
+        alert(`Leilão ${data.leilao_id} encerrado. Vencedor: ${data.id_vencedor}`);
+      } else if (tipo === "link_pagamento") {
         exibirLinkPagamento(data.link_pagamento);
-      } else if (data.tipo === "status_pagamento") {
+      } else if (tipo === "status_pagamento") {
         alert(`Status do pagamento: ${data.status}`);
       }
     } catch (e) {
-      console.error("Erro ao processar dados SSE:", e);
+      console.error("Erro ao processar notificação:", e);
     }
-  };
-
-  eventSource.onerror = function (event) {
-    console.error("Erro na conexão SSE:", event);
-    if (eventSource.readyState === EventSource.CLOSED) {
-      console.log("SSE desconectado. Tentando reconectar em 5 segundos...");
-      setTimeout(() => conectarSSE(), 5000);
-    }
-  };
-
-  eventSource.onopen = function () {
-    console.log("SSE conectado.");
-  };
+  });
+  
+  notificationStream.on('error', (err) => {
+    console.error("Erro no stream gRPC:", err);
+    // Tentar reconectar após 5 segundos
+    setTimeout(() => {
+      console.log("Tentando reconectar stream...");
+      conectarStreamGrpc();
+    }, 5000);
+  });
+  
+  notificationStream.on('end', () => {
+    console.log("Stream gRPC finalizado.");
+    // Reconectar automaticamente
+    setTimeout(() => conectarStreamGrpc(), 1000);
+  });
+  
+  console.log("Stream gRPC conectado.");
 }
 
 function getUserIdFromSessionStorage() {
@@ -145,5 +181,6 @@ function exibirLinkPagamento(link) {
 }
 
 window.onload = function () {
-  conectarSSE();
+  conectarStreamGrpc();
+  buscaLeiloes();
 };

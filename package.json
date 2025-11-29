@@ -1,5 +1,21 @@
 {
+  "name": "grpc-leilao-frontend",
+  "version": "1.0.0",
+  "description": "Frontend gRPC-Web para sistema de leilões",
+  "main": "static/script.js",
+  "scripts": {
+    "generate": "protoc -I=./protos --js_out=import_style=commonjs:./static/generated --grpc-web_out=import_style=commonjs,mode=grpcwebtext:./static/generated ./protos/leilao.proto ./protos/lance.proto ./protos/pagamento.proto ./protos/gateway.proto",
+    "build": "webpack --mode production",
+    "dev": "webpack --mode development --watch"
+  },
   "dependencies": {
-    "grpc-web": "^2.0.2"
-  }
+    "grpc-web": "^1.5.0",
+    "google-protobuf": "^3.21.2"
+  },
+  "devDependencies": {
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "author": "",
+  "license": "MIT"
 }
