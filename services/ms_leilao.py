@@ -278,7 +278,7 @@ def serve():
     """Iniciar servidor gRPC"""
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     leilao_pb2_grpc.add_LeilaoServiceServicer_to_server(LeilaoServicer(), server)
-    server.add_insecure_port('[::]:50051')
+    server.add_insecure_port('0.0.0.0:50051')
     server.start()
     print("[ms_leilao] Servidor gRPC iniciado na porta 50051")
     

@@ -160,7 +160,7 @@ def serve():
     """Iniciar servidor gRPC"""
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     pagamento_pb2_grpc.add_PagamentoServiceServicer_to_server(PagamentoServicer(), server)
-    server.add_insecure_port('[::]:50053')
+    server.add_insecure_port('0.0.0.0:50053')
     server.start()
     print("[ms_pagamento] Servidor gRPC iniciado na porta 50053")
     

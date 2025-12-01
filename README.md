@@ -1,14 +1,19 @@
 # Sistema de Leilões com gRPC
 
-Sistema de leilões distribuído implementado com **gRPC puro**, removendo completamente RabbitMQ, REST e SSE.
+Sistema de leilões distribuído com arquitetura de microsserviços usando gRPC e interface web Flask.
 
 ## 📋 Arquitetura
 
 ```
 ┌─────────────┐
-│   Frontend  │ (gRPC-Web ou cliente gRPC)
+│   Browser   │ (Frontend HTML + JavaScript)
 └──────┬──────┘
-       │
+       │ HTTP/REST
+       ▼
+┌─────────────┐
+│ Web Server  │ :3000 (Flask REST API)
+└──────┬──────┘
+       │ gRPC
        ▼
 ┌─────────────┐
 │  Gateway    │ :50054 (API Gateway gRPC)
@@ -22,24 +27,21 @@ Sistema de leilões distribuído implementado com **gRPC puro**, removendo compl
 └──────────┘   └──────────┘   └──────────┘   └──────────┘
 ```
 
-## 🚀 Início Rápido
+## 🚀 Como Usar
 
 ### 1. Instalar Dependências
 
 ```powershell
-pip install grpcio grpcio-tools protobuf requests
+pip install grpcio grpcio-tools protobuf requests flask flask-cors
 ```
 
-### 2. Gerar Código a partir dos .proto
+### 2. Gerar Código Python dos .proto
 
 ```powershell
-mkdir generated
 python -m grpc_tools.protoc -I./protos --python_out=./generated --grpc_python_out=./generated ./protos/leilao.proto ./protos/lance.proto ./protos/pagamento.proto ./protos/gateway.proto
 ```
 
-### 3. Iniciar os Microsserviços
-
-Abra **4 terminais** separados e execute:
+### 3. Iniciar os Microsserviços (5 terminais)
 
 ```powershell
 # Terminal 1 - Microsserviço de Leilão
@@ -51,37 +53,94 @@ python services/ms_lance.py
 # Terminal 3 - Microsserviço de Pagamento
 python services/ms_pagamento.py
 
-# Terminal 4 - API Gateway
+# Terminal 4 - Gateway gRPC
 python app.py
+
+# Terminal 5 - Servidor Web Flask
+python web_server.py
 ```
 
-### 4. (Opcional) Serviço Externo de Pagamento
+### 4. Acessar o Frontend
 
-```powershell
-python services/pagamento.py
-```
+Abra o navegador em: **http://localhost:3000**
+
+## 📡 Funcionalidades
+
+- ✅ Criar leilões
+- ✅ Listar leilões ativos
+- ✅ Registrar interesse em leilão
+- ✅ Fazer lances
+- ✅ Processar pagamentos
 
 ## 📡 Portas dos Serviços
 
 | Serviço       | Porta | Protocolo   |
 | ------------- | ----- | ----------- |
+| Web Server    | 3000  | HTTP        |
+| API Gateway   | 50054 | gRPC        |
 | ms_leilao     | 50051 | gRPC        |
 | ms_lance      | 50052 | gRPC        |
 | ms_pagamento  | 50053 | gRPC        |
-| API Gateway   | 50054 | gRPC        |
 | Serv. Externo | 5001  | HTTP (REST) |
 
-## 📝 Definições dos Serviços
+## 📝 Estrutura do Projeto
 
-### LeilaoService (porta 50051)
+```
+grpc/
+├── protos/           # Definições Protocol Buffers
+│   ├── gateway.proto
+│   ├── leilao.proto
+│   ├── lance.proto
+│   └── pagamento.proto
+├── generated/        # Código Python gerado
+├── services/         # Microsserviços gRPC
+│   ├── ms_leilao.py
+│   ├── ms_lance.py
+│   ├── ms_pagamento.py
+│   └── pagamento.py
+├── templates/        # Páginas HTML
+│   ├── index.html
+│   ├── cadastra_leilao.html
+│   └── lance.html
+├── static/           # JavaScript frontend
+│   ├── app.js
+│   ├── cadastra.js
+│   └── lance.js
+├── app.py           # Gateway gRPC
+├── web_server.py    # Servidor web Flask
+└── README.md
+```
 
-- `CriarLeilao` - Criar novo leilão
-- `ListarLeiloes` - Listar leilões ativos
-- `RegistrarInteresse` - Cliente registra interesse
-- `CancelarInteresse` - Cliente cancela interesse
-- `StreamNotificacoes` - Stream de notificações do leilão (Server Streaming)
+## 🔧 Tecnologias
 
-### LanceService (porta 50052)
+- **Python 3.8+**
+- **gRPC** - Comunicação entre microsserviços
+- **Protocol Buffers** - Serialização de dados
+- **Flask** - Servidor web e API REST
+- **JavaScript (Vanilla)** - Frontend
+
+## ⚡ Comandos Rápidos
+
+### Instalar tudo de uma vez:
+```powershell
+pip install grpcio grpcio-tools protobuf requests flask flask-cors
+```
+
+### Gerar código dos .proto:
+```powershell
+python -m grpc_tools.protoc -I./protos --python_out=./generated --grpc_python_out=./generated ./protos/leilao.proto ./protos/lance.proto ./protos/pagamento.proto ./protos/gateway.proto
+```
+
+### Iniciar todos os serviços (cole em terminais separados):
+```powershell
+python services/ms_leilao.py
+python services/ms_lance.py
+python services/ms_pagamento.py
+python app.py
+python web_server.py
+```
+
+Depois acesse: **http://localhost:3000**
 
 - `EnviarLance` - Enviar lance para leilão
 - `IniciarLeilao` - Notificar início de leilão (chamado por ms_leilao)

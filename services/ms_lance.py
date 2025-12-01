@@ -201,7 +201,7 @@ def serve():
     """Iniciar servidor gRPC"""
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     lance_pb2_grpc.add_LanceServiceServicer_to_server(LanceServicer(), server)
-    server.add_insecure_port('[::]:50052')
+    server.add_insecure_port('0.0.0.0:50052')
     server.start()
     print("[ms_lance] Servidor gRPC iniciado na porta 50052")
     
