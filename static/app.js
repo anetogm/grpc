@@ -1,6 +1,10 @@
-// Cliente REST simples (substitui gRPC-Web)
-const API_URL = "http://localhost:3000/api";
-let clienteId = getUserIdFromSessionStorage();
+// Frontend agora usa gRPC-Web via Envoy
+let clienteId = undefined;
+const client = new GrpcClient.GatewayServiceClient(
+  "http://localhost:8080",
+  null,
+  null
+);
 
 function getUserIdFromSessionStorage() {
   let userId = sessionStorage.getItem("userId");
@@ -20,39 +24,43 @@ function nowForDatetimeLocal() {
 }
 
 async function buscaLeiloes() {
-  try {
-    const response = await fetch(`${API_URL}/leiloes`);
-    const data = await response.json();
-
-    if (data.success) {
-      renderLeiloes(data.leiloes);
-    } else {
-      document.getElementById("demo").textContent = "Erro: " + data.message;
+  const req = new GrpcClient.ListarLeiloesRequest();
+  client.listarLeiloes(req, {}, (err, resp) => {
+    if (err) {
+      console.error("gRPC-Web error:", err.message);
+      const el = document.getElementById("demo");
+      if (el) el.textContent = "Erro: " + err.message;
+      return;
     }
-  } catch (error) {
-    console.error("Erro ao buscar leilões:", error);
-    document.getElementById("demo").textContent =
-      "Erro ao buscar leilões: " + error.message;
-  }
+    const leiloesList = resp.getLeiloesList();
+    const leiloes = leiloesList.map(l => ({
+      id: l.getId(),
+      nome: l.getNome(),
+      descricao: l.getDescricao(),
+      inicio: l.getInicio(),
+      fim: l.getFim(),
+      valor_inicial: l.getValorInicial(),
+      status: l.getStatus()
+    }));
+    renderLeiloes(leiloes);
+  });
 }
 
 async function registrarInteresse(leilaoId) {
   try {
-    const response = await fetch(`${API_URL}/interesse`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        leilao_id: leilaoId,
-        cliente_id: clienteId,
-      }),
+    if (!clienteId) clienteId = getUserIdFromSessionStorage();
+    const req = new GrpcClient.RegistrarInteresseRequest();
+    req.setLeilaoId(leilaoId);
+    req.setClienteId(clienteId);
+    client.registrarInteresse(req, {}, (err, resp) => {
+      if (err) {
+        console.error("Erro ao registrar interesse:", err.message);
+        alert("Erro ao registrar interesse: " + err.message);
+        return;
+      }
+      alert(resp.getMessage() || "Interesse registrado");
+      if (resp.getSuccess()) buscaLeiloes();
     });
-
-    const data = await response.json();
-    alert(data.message);
-
-    if (data.success) {
-      buscaLeiloes(); // Atualizar lista
-    }
   } catch (error) {
     console.error("Erro ao registrar interesse:", error);
     alert("Erro ao registrar interesse: " + error.message);
@@ -78,14 +86,14 @@ function renderLeiloes(leiloes) {
                 <p><strong>Status:</strong> <span class="${statusClass}">${
       leilao.status
     }</span></p>
-                <p><strong>Valor Mínimo:</strong> R$ ${leilao.valor_minimo.toFixed(
+                <p><strong>Valor Inicial:</strong> R$ ${leilao.valor_inicial.toFixed(
                   2
                 )}</p>
                 <p><strong>Início:</strong> ${new Date(
-                  leilao.data_inicio
+                  leilao.inicio
                 ).toLocaleString("pt-BR")}</p>
                 <p><strong>Fim:</strong> ${new Date(
-                  leilao.data_fim
+                  leilao.fim
                 ).toLocaleString("pt-BR")}</p>
                 ${
                   leilao.status === "ativo"

@@ -1,5 +1,9 @@
-// Script para fazer lance
-const API_URL = "http://localhost:3000/api";
+// Lances via gRPC-Web (Envoy)
+const client = new GrpcClient.GatewayServiceClient(
+  "http://localhost:8080",
+  null,
+  null
+);
 
 function getUserIdFromSessionStorage() {
   let userId = sessionStorage.getItem("userId");
@@ -22,27 +26,33 @@ async function fazerLance() {
   }
 
   try {
-    const response = await fetch(`${API_URL}/lance`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        leilao_id: parseInt(leilaoId),
-        user_id: userId,
-        valor: parseFloat(valorLance),
-      }),
+    const req = new GrpcClient.EnviarLanceRequest();
+    req.setLeilaoId(parseInt(leilaoId));
+    req.setUserId(userId);
+    req.setValor(parseFloat(valorLance));
+
+    client.enviarLance(req, {}, (err, resp) => {
+      if (err) {
+        console.error("Erro ao fazer lance:", err.message);
+        document.getElementById("resultado").textContent =
+          "Erro: " + err.message;
+        document.getElementById("resultado").style.color = "red";
+        return;
+      }
+      if (resp.getSuccess()) {
+        document.getElementById(
+          "resultado"
+        ).textContent = `✓ ${resp.getMessage()} (Válido: ${
+          resp.getValido() ? "Sim" : "Não"
+        })`;
+        document.getElementById("resultado").style.color = "green";
+      } else {
+        document.getElementById(
+          "resultado"
+        ).textContent = `✗ ${resp.getMessage()}`;
+        document.getElementById("resultado").style.color = "red";
+      }
     });
-
-    const data = await response.json();
-
-    if (data.success) {
-      document.getElementById("resultado").textContent = `✓ ${
-        data.message
-      } (Válido: ${data.valido ? "Sim" : "Não"})`;
-      document.getElementById("resultado").style.color = "green";
-    } else {
-      document.getElementById("resultado").textContent = `✗ ${data.message}`;
-      document.getElementById("resultado").style.color = "red";
-    }
   } catch (error) {
     console.error("Erro ao fazer lance:", error);
     document.getElementById("resultado").textContent = "Erro: " + error.message;

@@ -1,5 +1,9 @@
-// Script para cadastrar leilão
-const API_URL = "http://localhost:3000/api";
+// Cadastro via gRPC-Web (Envoy)
+const client = new GrpcClient.GatewayServiceClient(
+  "http://localhost:8080",
+  null,
+  null
+);
 
 function nowForDatetimeLocal() {
   const now = new Date();
@@ -21,30 +25,29 @@ async function cadastrarLeilao(event) {
   const fim = document.getElementById("fim").value;
 
   try {
-    const response = await fetch(`${API_URL}/leiloes`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        nome: item,
-        descricao: descricao,
-        valor_minimo: valor_inicial,
-        data_inicio: inicio,
-        data_fim: fim,
-      }),
+    const req = new GrpcClient.CriarLeilaoRequest();
+    req.setNome(item);
+    req.setDescricao(descricao);
+    req.setValorInicial(valor_inicial);
+    req.setInicio(inicio);
+    req.setFim(fim);
+
+    client.criarLeilao(req, {}, (err, resp) => {
+      if (err) {
+        console.error("Erro ao cadastrar leilão:", err.message);
+        alert("Erro ao cadastrar leilão: " + err.message);
+        return;
+      }
+      if (resp.getSuccess()) {
+        document.getElementById("successMessage").style.display = "block";
+        document.getElementById("cadastraLeilaoForm").reset();
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 2000);
+      } else {
+        alert("Erro: " + resp.getMessage());
+      }
     });
-
-    const data = await response.json();
-
-    if (data.success) {
-      document.getElementById("successMessage").style.display = "block";
-      document.getElementById("cadastraLeilaoForm").reset();
-
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 2000);
-    } else {
-      alert("Erro: " + data.message);
-    }
   } catch (error) {
     console.error("Erro ao cadastrar leilão:", error);
     alert("Erro ao cadastrar leilão: " + error.message);
