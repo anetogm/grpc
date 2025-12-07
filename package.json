@@ -1,24 +1,16 @@
 {
-  "name": "grpc",
+  "name": "grpc-frontend",
   "version": "1.0.0",
-  "description": "Sistema de leilões distribuído com arquitetura de microsserviços usando gRPC e interface web Flask.",
-  "main": "index.js",
+  "description": "Frontend gRPC Web client",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "webpack --mode=production"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/anetogm/grpc.git"
+  "dependencies": {
+    "grpc-web": "^1.4.2"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/anetogm/grpc/issues"
-  },
-  "homepage": "https://github.com/anetogm/grpc#readme",
   "devDependencies": {
-    "esbuild": "^0.27.0"
+    "protoc-gen-grpc-web": "^1.5.0",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
   }
 }

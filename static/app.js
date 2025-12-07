@@ -1,5 +1,13 @@
 // Frontend agora usa gRPC-Web via Envoy
 let clienteId = undefined;
+
+// Verificar se GrpcClient está disponível
+if (typeof GrpcClient === "undefined") {
+  console.error(
+    "GrpcClient não carregado. Verifique se grpc_client.bundle.js foi incluído."
+  );
+}
+
 const client = new GrpcClient.GatewayServiceClient(
   "http://localhost:8080",
   null,
@@ -25,6 +33,7 @@ function nowForDatetimeLocal() {
 
 async function buscaLeiloes() {
   const req = new GrpcClient.ListarLeiloesRequest();
+  console.log("Buscando leilões via gRPC-Web...");
   client.listarLeiloes(req, {}, (err, resp) => {
     if (err) {
       console.error("gRPC-Web error:", err.message);
@@ -33,14 +42,14 @@ async function buscaLeiloes() {
       return;
     }
     const leiloesList = resp.getLeiloesList();
-    const leiloes = leiloesList.map(l => ({
+    const leiloes = leiloesList.map((l) => ({
       id: l.getId(),
       nome: l.getNome(),
       descricao: l.getDescricao(),
       inicio: l.getInicio(),
       fim: l.getFim(),
       valor_inicial: l.getValorInicial(),
-      status: l.getStatus()
+      status: l.getStatus(),
     }));
     renderLeiloes(leiloes);
   });
@@ -92,9 +101,9 @@ function renderLeiloes(leiloes) {
                 <p><strong>Início:</strong> ${new Date(
                   leilao.inicio
                 ).toLocaleString("pt-BR")}</p>
-                <p><strong>Fim:</strong> ${new Date(
-                  leilao.fim
-                ).toLocaleString("pt-BR")}</p>
+                <p><strong>Fim:</strong> ${new Date(leilao.fim).toLocaleString(
+                  "pt-BR"
+                )}</p>
                 ${
                   leilao.status === "ativo"
                     ? `<button onclick="registrarInteresse(${leilao.id})">Registrar Interesse</button>`

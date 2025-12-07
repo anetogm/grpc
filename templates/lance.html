@@ -19,6 +19,10 @@
     <p id="resultado"></p>
     <a href="/">Voltar à Página Inicial</a>
 
+    <!-- Dependências externas para gRPC-Web (carregar antes do bundle) -->
+    <script src="https://unpkg.com/google-protobuf@3.21.2/google-protobuf.js"></script>
+    <script src="https://unpkg.com/grpc-web@1.5.0/dist/grpc-web.min.js"></script>
+    <!-- Bundle único do cliente gRPC-Web e app -->
     <script src="/static/grpc_client.bundle.js"></script>
     <script src="/static/lance.js"></script>
   </body>
