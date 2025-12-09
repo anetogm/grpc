@@ -1,16 +1,17 @@
 import grpc
+import os
 from concurrent import futures
 import threading
-import sys
-import os
-import services.gateway_pb2
-import services.gateway_pb2_grpc
-import services.leilao_pb2
-import services.leilao_pb2_grpc
-import services.lance_pb2
-import services.lance_pb2_grpc
-import services.pagamento_pb2
-import services.pagamento_pb2_grpc
+import generated.gateway_pb2
+import generated.gateway_pb2_grpc
+import generated.leilao_pb2
+import generated.leilao_pb2_grpc
+import generated.lance_pb2
+import generated.lance_pb2_grpc
+import generated.pagamento_pb2
+import generated.pagamento_pb2_grpc
+import socketserver
+import http.server
 
 lock = threading.Lock()
 streams_ativos = {} 
@@ -21,7 +22,7 @@ LANCE_SERVICE = 'localhost:50052'
 PAGAMENTO_SERVICE = 'localhost:50053'
 
 
-class GatewayServicer(services.gateway_pb2_grpc.GatewayServiceServicer):
+class GatewayServicer (generated.gateway_pb2_grpc.GatewayServiceServicer):
     """API Gateway que agrega todos os microsserviços"""
     
     def __init__(self):
@@ -30,9 +31,9 @@ class GatewayServicer(services.gateway_pb2_grpc.GatewayServiceServicer):
         self.lance_channel = grpc.insecure_channel(LANCE_SERVICE)
         self.pagamento_channel = grpc.insecure_channel(PAGAMENTO_SERVICE)
         
-        self.leilao_stub = services.leilao_pb2_grpc.LeilaoServiceStub(self.leilao_channel)
-        self.lance_stub = services.lance_pb2_grpc.LanceServiceStub(self.lance_channel)
-        self.pagamento_stub = services.pagamento_pb2_grpc.PagamentoServiceStub(self.pagamento_channel)
+        self.leilao_stub = generated.leilao_pb2_grpc.LeilaoServiceStub(self.leilao_channel)
+        self.lance_stub = generated.lance_pb2_grpc.LanceServiceStub(self.lance_channel)
+        self.pagamento_stub = generated.pagamento_pb2_grpc.PagamentoServiceStub(self.pagamento_channel)
         
         print("[Gateway] Conexões com microsserviços estabelecidas")
         
@@ -45,7 +46,7 @@ class GatewayServicer(services.gateway_pb2_grpc.GatewayServiceServicer):
             print(f"[Gateway] Erro ao criar leilão: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
-            return services.leilao_pb2.CriarLeilaoResponse(success=False, message=str(e))
+            return generated.leilao_pb2.CriarLeilaoResponse(success=False, message=str(e))
     
     def ListarLeiloes(self, request, context):
         """Listar todos os leilões"""
@@ -56,7 +57,7 @@ class GatewayServicer(services.gateway_pb2_grpc.GatewayServiceServicer):
             print(f"[Gateway] Erro ao listar leilões: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
-            return services.leilao_pb2.ListarLeiloesResponse(leiloes=[])
+            return generated.leilao_pb2.ListarLeiloesResponse(leiloes=[])
     
     def RegistrarInteresse(self, request, context):
         """Registrar interesse em um leilão"""
@@ -67,7 +68,7 @@ class GatewayServicer(services.gateway_pb2_grpc.GatewayServiceServicer):
             print(f"[Gateway] Erro ao registrar interesse: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
-            return services.leilao_pb2.RegistrarInteresseResponse(success=False, message=str(e))
+            return generated.leilao_pb2.RegistrarInteresseResponse(success=False, message=str(e))
     
     def CancelarInteresse(self, request, context):
         """Cancelar interesse em um leilão"""
@@ -78,7 +79,7 @@ class GatewayServicer(services.gateway_pb2_grpc.GatewayServiceServicer):
             print(f"[Gateway] Erro ao cancelar interesse: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
-            return services.leilao_pb2.CancelarInteresseResponse(success=False, message=str(e))
+            return generated.leilao_pb2.CancelarInteresseResponse(success=False, message=str(e))
     
     # ========== MÉTODOS DE LANCE ==========
     
@@ -91,7 +92,7 @@ class GatewayServicer(services.gateway_pb2_grpc.GatewayServiceServicer):
             print(f"[Gateway] Erro ao enviar lance: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
-            return services.lance_pb2.EnviarLanceResponse(success=False, message=str(e), valido=False)
+            return generated.lance_pb2.EnviarLanceResponse(success=False, message=str(e), valido=False)
     
     # ========== MÉTODOS DE PAGAMENTO ==========
     
@@ -104,7 +105,7 @@ class GatewayServicer(services.gateway_pb2_grpc.GatewayServiceServicer):
             print(f"[Gateway] Erro ao processar pagamento: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
-            return services.pagamento_pb2.ProcessarPagamentoResponse(success=False, message=str(e))
+            return generated.pagamento_pb2.ProcessarPagamentoResponse(success=False, message=str(e))
     
     # ========== STREAM UNIFICADO DE NOTIFICAÇÕES ==========
     
@@ -127,12 +128,12 @@ class GatewayServicer(services.gateway_pb2_grpc.GatewayServiceServicer):
         def forward_leilao_notifications():
             """Receber e encaminhar notificações de leilão"""
             try:
-                req = services.leilao_pb2.StreamNotificacoesRequest(cliente_id=cliente_id)
+                req = generated.leilao_pb2.StreamNotificacoesRequest(cliente_id=cliente_id)
                 for notif in self.leilao_stub.StreamNotificacoes(req):
                     if stop_event.is_set():
                         break
                     # Converter para notificação unificada
-                    unified = services.gateway_pb2.NotificacaoUnificada(
+                    unified = generated.gateway_pb2.NotificacaoUnificada(
                         tipo=notif.tipo,
                         leilao_id=notif.leilao_id,
                         leilao=notif.leilao
@@ -144,12 +145,12 @@ class GatewayServicer(services.gateway_pb2_grpc.GatewayServiceServicer):
         def forward_lance_notifications():
             """Receber e encaminhar notificações de lance"""
             try:
-                req = services.lance_pb2.StreamLancesRequest(cliente_id=cliente_id)
+                req = generated.lance_pb2.StreamLancesRequest(cliente_id=cliente_id)
                 for notif in self.lance_stub.StreamLances(req):
                     if stop_event.is_set():
                         break
                     # Converter para notificação unificada
-                    unified = services.gateway_pb2.NotificacaoUnificada(
+                    unified = generated.gateway_pb2.NotificacaoUnificada(
                         tipo=notif.tipo,
                         leilao_id=notif.leilao_id,
                         user_id=notif.user_id,
@@ -163,12 +164,12 @@ class GatewayServicer(services.gateway_pb2_grpc.GatewayServiceServicer):
         def forward_pagamento_notifications():
             """Receber e encaminhar notificações de pagamento"""
             try:
-                req = services.pagamento_pb2.StreamPagamentosRequest(cliente_id=cliente_id)
+                req = generated.pagamento_pb2.StreamPagamentosRequest(cliente_id=cliente_id)
                 for notif in self.pagamento_stub.StreamPagamentos(req):
                     if stop_event.is_set():
                         break
                     # Converter para notificação unificada
-                    unified = services.gateway_pb2.NotificacaoUnificada(
+                    unified = generated.gateway_pb2.NotificacaoUnificada(
                         tipo=notif.tipo,
                         leilao_id=notif.leilao_id,
                         user_id=notif.cliente_id,
@@ -210,9 +211,32 @@ class GatewayServicer(services.gateway_pb2_grpc.GatewayServiceServicer):
 
 
 def serve():
-    """Iniciar API Gateway gRPC"""
+    """Iniciar API Gateway gRPC e servidor HTTP para frontend"""
+   
+    # Função para servir arquivos estáticos e templates
+    def run_http_server():
+        # Diretório raiz para servir arquivos (raiz do projeto)
+        directory = os.getcwd()
+       
+        # Handler personalizado para redirecionar / para /templates/index.html
+        class CustomHandler(http.server.SimpleHTTPRequestHandler):
+            def do_GET(self):
+                if self.path == '/':
+                    self.path = '/templates/index.html'
+                return super().do_GET()
+       
+        # Servidor HTTP na porta 3000
+        with socketserver.TCPServer(("", 3000), CustomHandler) as httpd:
+            print("[HTTP Server] Servindo frontend na porta 3000")
+            httpd.serve_forever()
+   
+    # Iniciar servidor HTTP em um thread separado
+    http_thread = threading.Thread(target=run_http_server, daemon=True)
+    http_thread.start()
+   
+    # Iniciar servidor gRPC
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    services.gateway_pb2_grpc.add_GatewayServiceServicer_to_server(GatewayServicer(), server)
+    generated.gateway_pb2_grpc.add_GatewayServiceServicer_to_server(GatewayServicer(), server)
     server.add_insecure_port('[::]:50054')
     server.start()
     print("[Gateway] API Gateway gRPC iniciado na porta 50054")
@@ -220,7 +244,7 @@ def serve():
     print(f"  - Leilão: {LEILAO_SERVICE}")
     print(f"  - Lance: {LANCE_SERVICE}")
     print(f"  - Pagamento: {PAGAMENTO_SERVICE}")
-    
+   
     try:
         server.wait_for_termination()
     except KeyboardInterrupt:
