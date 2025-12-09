@@ -5,13 +5,13 @@ import sys
 import os
 from datetime import datetime
 
-# Adicionar diretório generated ao path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'generated'))
+# Adicionar diretório raiz ao path para importar generated
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import lance_pb2
-import lance_pb2_grpc
-import pagamento_pb2
-import pagamento_pb2_grpc
+import generated.lance_pb2
+import generated.lance_pb2_grpc
+import generated.pagamento_pb2
+import generated.pagamento_pb2_grpc
 
 lock = threading.Lock()
 
@@ -20,7 +20,7 @@ lances_atuais = {}
 streams_ativos = {}  # {cliente_id: [queue]}
 
 
-class LanceServicer(lance_pb2_grpc.LanceServiceServicer):
+class LanceServicer(generated.lance_pb2_grpc.LanceServiceServicer):
     
     def IniciarLeilao(self, request, context):
         """Recebe notificação de leilão iniciado"""
@@ -38,7 +38,7 @@ class LanceServicer(lance_pb2_grpc.LanceServiceServicer):
             }
             print(f"[ms_lance] Leilão {leilao_id} adicionado aos ativos: {leiloes_ativos}")
         
-        return lance_pb2.IniciarLeilaoResponse(success=True)
+        return generated.lance_pb2.IniciarLeilaoResponse(success=True)
     
     def FinalizarLeilao(self, request, context):
         """Recebe notificação de leilão finalizado"""
@@ -57,8 +57,8 @@ class LanceServicer(lance_pb2_grpc.LanceServiceServicer):
             # Notificar serviço de pagamento
             try:
                 with grpc.insecure_channel('localhost:50053') as channel:
-                    stub = pagamento_pb2_grpc.PagamentoServiceStub(channel)
-                    request = pagamento_pb2.NotificarVencedorRequest(
+                    stub = generated.pagamento_pb2_grpc.PagamentoServiceStub(channel)
+                    request = generated.pagamento_pb2.NotificarVencedorRequest(
                         leilao_id=leilao_id,
                         id_vencedor=vencedor['id_cliente'],
                         valor=vencedor['valor']
@@ -67,13 +67,13 @@ class LanceServicer(lance_pb2_grpc.LanceServiceServicer):
             except Exception as e:
                 print(f"[ms_lance] Erro ao notificar pagamento: {e}")
             
-            return lance_pb2.FinalizarLeilaoResponse(
+            return generated.lance_pb2.FinalizarLeilaoResponse(
                 success=True,
                 id_vencedor=vencedor['id_cliente'],
                 valor=vencedor['valor']
             )
         
-        return lance_pb2.FinalizarLeilaoResponse(success=False)
+        return generated.lance_pb2.FinalizarLeilaoResponse(success=False)
     
     def EnviarLance(self, request, context):
         """Recebe e valida um lance"""
@@ -85,7 +85,7 @@ class LanceServicer(lance_pb2_grpc.LanceServiceServicer):
             # Verificar se leilão está ativo
             if leilao_id not in leiloes_ativos:
                 notificar_lance_invalido(user_id, leilao_id, valor)
-                return lance_pb2.EnviarLanceResponse(
+                return generated.lance_pb2.EnviarLanceResponse(
                     success=False,
                     message='Leilão não está ativo',
                     valido=False
@@ -95,7 +95,7 @@ class LanceServicer(lance_pb2_grpc.LanceServiceServicer):
             lance_atual = lances_atuais.get(leilao_id)
             if lance_atual and valor <= lance_atual['valor']:
                 notificar_lance_invalido(user_id, leilao_id, valor)
-                return lance_pb2.EnviarLanceResponse(
+                return generated.lance_pb2.EnviarLanceResponse(
                     success=False,
                     message='Lance deve ser maior que o atual',
                     valido=False
@@ -108,7 +108,7 @@ class LanceServicer(lance_pb2_grpc.LanceServiceServicer):
         # Notificar todos os clientes interessados
         notificar_lance_valido(leilao_id, user_id, valor)
         
-        return lance_pb2.EnviarLanceResponse(
+        return generated.lance_pb2.EnviarLanceResponse(
             success=True,
             message='Lance validado com sucesso',
             valido=True
@@ -145,7 +145,7 @@ class LanceServicer(lance_pb2_grpc.LanceServiceServicer):
 
 def notificar_lance_valido(leilao_id, user_id, valor):
     """Notificar todos os clientes sobre um lance válido"""
-    notificacao = lance_pb2.NotificacaoLance(
+    notificacao = generated.lance_pb2.NotificacaoLance(
         tipo='novo_lance_valido',
         leilao_id=leilao_id,
         user_id=user_id,
@@ -163,7 +163,7 @@ def notificar_lance_valido(leilao_id, user_id, valor):
 
 def notificar_lance_invalido(user_id, leilao_id, valor):
     """Notificar cliente específico sobre lance inválido"""
-    notificacao = lance_pb2.NotificacaoLance(
+    notificacao = generated.lance_pb2.NotificacaoLance(
         tipo='lance_invalido',
         leilao_id=leilao_id,
         user_id=user_id,
@@ -181,7 +181,7 @@ def notificar_lance_invalido(user_id, leilao_id, valor):
 
 def notificar_vencedor(leilao_id, id_vencedor, valor):
     """Notificar todos os clientes sobre o vencedor"""
-    notificacao = lance_pb2.NotificacaoLance(
+    notificacao = generated.lance_pb2.NotificacaoLance(
         tipo='vencedor_leilao',
         leilao_id=leilao_id,
         id_vencedor=id_vencedor,
@@ -200,7 +200,7 @@ def notificar_vencedor(leilao_id, id_vencedor, valor):
 def serve():
     """Iniciar servidor gRPC"""
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    lance_pb2_grpc.add_LanceServiceServicer_to_server(LanceServicer(), server)
+    generated.lance_pb2_grpc.add_LanceServiceServicer_to_server(LanceServicer(), server)
     server.add_insecure_port('0.0.0.0:50052')
     server.start()
     print("[ms_lance] Servidor gRPC iniciado na porta 50052")

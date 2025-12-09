@@ -223,13 +223,19 @@ def serve():
             def do_GET(self):
                 if self.path == '/':
                     self.path = '/templates/index.html'
+                elif self.path == '/pagamento':
+                    self.path = '/templates/pagar.html'
+                elif self.path == '/cadastra_leilao':
+                    self.path = '/templates/cadastra_leilao.html'
+                elif self.path == '/lance':
+                    self.path = '/templates/lance.html'
                 return super().do_GET()
        
         # Servidor HTTP na porta 3000
         with socketserver.TCPServer(("", 3000), CustomHandler) as httpd:
             print("[HTTP Server] Servindo frontend na porta 3000")
             httpd.serve_forever()
-   
+
     # Iniciar servidor HTTP em um thread separado
     http_thread = threading.Thread(target=run_http_server, daemon=True)
     http_thread.start()

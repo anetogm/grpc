@@ -6,13 +6,13 @@ import threading
 import sys
 import os
 
-# Adicionar diretório generated ao path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'generated'))
+# Adicionar diretório raiz ao path para importar generated
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import leilao_pb2
-import leilao_pb2_grpc
-import lance_pb2
-import lance_pb2_grpc
+import generated.leilao_pb2
+import generated.leilao_pb2_grpc
+import generated.lance_pb2
+import generated.lance_pb2_grpc
 
 inicio = datetime.now() + timedelta(seconds=2)
 fim = inicio + timedelta(minutes=2)
@@ -43,7 +43,7 @@ clientes_interessados = {}  # {leilao_id: set(cliente_ids)}
 streams_ativos = {}  # {cliente_id: [queue]}
 
 
-class LeilaoServicer(leilao_pb2_grpc.LeilaoServiceServicer):
+class LeilaoServicer(generated.leilao_pb2_grpc.LeilaoServiceServicer):
     
     def CriarLeilao(self, request, context):
         try:
@@ -78,7 +78,7 @@ class LeilaoServicer(leilao_pb2_grpc.LeilaoServiceServicer):
             t.start()
             
             # Criar resposta
-            leilao_pb = leilao_pb2.Leilao(
+            leilao_pb = generated.leilao_pb2.Leilao(
                 id=next_id,
                 nome=request.nome,
                 descricao=request.descricao,
@@ -88,14 +88,14 @@ class LeilaoServicer(leilao_pb2_grpc.LeilaoServiceServicer):
                 status='ativo'
             )
             
-            return leilao_pb2.CriarLeilaoResponse(
+            return generated.leilao_pb2.CriarLeilaoResponse(
                 success=True,
                 message="Leilão cadastrado com sucesso",
                 leilao_id=next_id,
                 leilao=leilao_pb
             )
         except Exception as e:
-            return leilao_pb2.CriarLeilaoResponse(
+            return generated.leilao_pb2.CriarLeilaoResponse(
                 success=False,
                 message=f"Erro ao criar leilão: {str(e)}"
             )
@@ -104,7 +104,7 @@ class LeilaoServicer(leilao_pb2_grpc.LeilaoServiceServicer):
         with lock:
             leiloes_pb = []
             for l in leiloes:
-                leilao_pb = leilao_pb2.Leilao(
+                leilao_pb = generated.leilao_pb2.Leilao(
                     id=l['id'],
                     nome=l['nome'],
                     descricao=l['descricao'],
@@ -115,7 +115,7 @@ class LeilaoServicer(leilao_pb2_grpc.LeilaoServiceServicer):
                 )
                 leiloes_pb.append(leilao_pb)
         
-        return leilao_pb2.ListarLeiloesResponse(leiloes=leiloes_pb)
+        return generated.leilao_pb2.ListarLeiloesResponse(leiloes=leiloes_pb)
     
     def RegistrarInteresse(self, request, context):
         leilao_id = request.leilao_id
@@ -128,7 +128,7 @@ class LeilaoServicer(leilao_pb2_grpc.LeilaoServiceServicer):
         
         print(f"[ms_leilao] Cliente {cliente_id} registrou interesse no leilão {leilao_id}")
         
-        return leilao_pb2.RegistrarInteresseResponse(
+        return generated.leilao_pb2.RegistrarInteresseResponse(
             success=True,
             message="Interesse registrado com sucesso"
         )
@@ -145,7 +145,7 @@ class LeilaoServicer(leilao_pb2_grpc.LeilaoServiceServicer):
         
         print(f"[ms_leilao] Cliente {cliente_id} cancelou interesse no leilão {leilao_id}")
         
-        return leilao_pb2.CancelarInteresseResponse(
+        return generated.leilao_pb2.CancelarInteresseResponse(
             success=True,
             message="Interesse cancelado com sucesso"
         )
@@ -191,7 +191,7 @@ def notificar_clientes_leilao(leilao_id, tipo, leilao_data):
         
         clientes = list(clientes_interessados[leilao_id])
     
-    leilao_pb = leilao_pb2.Leilao(
+    leilao_pb = generated.leilao_pb2.Leilao(
         id=leilao_data['id'],
         nome=leilao_data['nome'],
         descricao=leilao_data['descricao'],
@@ -201,7 +201,7 @@ def notificar_clientes_leilao(leilao_id, tipo, leilao_data):
         status=leilao_data['status']
     )
     
-    notificacao = leilao_pb2.NotificacaoLeilao(
+    notificacao = generated.leilao_pb2.NotificacaoLeilao(
         tipo=tipo,
         leilao_id=leilao_id,
         leilao=leilao_pb
@@ -231,8 +231,8 @@ def gerenciar_leilao(leilao):
     # Notificar via gRPC o microsserviço de lances que leilão iniciou
     try:
         with grpc.insecure_channel('localhost:50052') as channel:
-            stub = lance_pb2_grpc.LanceServiceStub(channel)
-            leilao_ativo = lance_pb2.LeilaoAtivo(
+            stub = generated.lance_pb2_grpc.LanceServiceStub(channel)
+            leilao_ativo = generated.lance_pb2.LeilaoAtivo(
                 id=leilao_id,
                 nome=leilao['nome'],
                 descricao=leilao['descricao'],
@@ -240,7 +240,7 @@ def gerenciar_leilao(leilao):
                 inicio=leilao['inicio'].isoformat(),
                 fim=leilao['fim'].isoformat()
             )
-            request = lance_pb2.IniciarLeilaoRequest(leilao=leilao_ativo)
+            request = generated.lance_pb2.IniciarLeilaoRequest(leilao=leilao_ativo)
             stub.IniciarLeilao(request)
     except Exception as e:
         print(f"[ms_leilao] Erro ao notificar início do leilão: {e}")
@@ -259,8 +259,8 @@ def gerenciar_leilao(leilao):
     # Notificar via gRPC o microsserviço de lances que leilão finalizou
     try:
         with grpc.insecure_channel('localhost:50052') as channel:
-            stub = lance_pb2_grpc.LanceServiceStub(channel)
-            request = lance_pb2.FinalizarLeilaoRequest(leilao_id=leilao_id)
+            stub = generated.lance_pb2_grpc.LanceServiceStub(channel)
+            request = generated.lance_pb2.FinalizarLeilaoRequest(leilao_id=leilao_id)
             response = stub.FinalizarLeilao(request)
             
             # Se houver vencedor, notificar clientes
@@ -277,7 +277,7 @@ def gerenciar_leilao(leilao):
 def serve():
     """Iniciar servidor gRPC"""
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    leilao_pb2_grpc.add_LeilaoServiceServicer_to_server(LeilaoServicer(), server)
+    generated.leilao_pb2_grpc.add_LeilaoServiceServicer_to_server(LeilaoServicer(), server)
     server.add_insecure_port('0.0.0.0:50051')
     server.start()
     print("[ms_leilao] Servidor gRPC iniciado na porta 50051")

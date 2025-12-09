@@ -6,17 +6,17 @@ import requests
 import sys
 import os
 
-# Adicionar diretório generated ao path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'generated'))
+# Adicionar diretório raiz ao path para importar generated
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import pagamento_pb2
-import pagamento_pb2_grpc
+import generated.pagamento_pb2
+import generated.pagamento_pb2_grpc
 
 lock = threading.Lock()
 streams_ativos = {}  # {cliente_id: [queue]}
 
 
-class PagamentoServicer(pagamento_pb2_grpc.PagamentoServiceServicer):
+class PagamentoServicer(generated.pagamento_pb2_grpc.PagamentoServiceServicer):
     
     def NotificarVencedor(self, request, context):
         """Recebe notificação de vencedor e inicia processo de pagamento"""
@@ -60,7 +60,7 @@ class PagamentoServicer(pagamento_pb2_grpc.PagamentoServiceServicer):
         # Notificar cliente sobre status inicial
         notificar_status_pagamento(leilao_id, id_vencedor, id_transacao, 'pendente', valor)
         
-        return pagamento_pb2.NotificarVencedorResponse(success=True)
+        return generated.pagamento_pb2.NotificarVencedorResponse(success=True)
     
     def ProcessarPagamento(self, request, context):
         """Processar pagamento (webhook ou chamada direta)"""
@@ -76,7 +76,7 @@ class PagamentoServicer(pagamento_pb2_grpc.PagamentoServiceServicer):
         # Notificar cliente
         notificar_link_pagamento(leilao_id, cliente_id, id_transacao, link_pagamento, valor)
         
-        return pagamento_pb2.ProcessarPagamentoResponse(
+        return generated.pagamento_pb2.ProcessarPagamentoResponse(
             success=True,
             message='Pagamento iniciado',
             id_transacao=id_transacao,
@@ -114,7 +114,7 @@ class PagamentoServicer(pagamento_pb2_grpc.PagamentoServiceServicer):
 
 def notificar_link_pagamento(leilao_id, cliente_id, id_transacao, link_pagamento, valor):
     """Notificar cliente sobre link de pagamento"""
-    notificacao = pagamento_pb2.NotificacaoPagamento(
+    notificacao = generated.pagamento_pb2.NotificacaoPagamento(
         tipo='link_pagamento',
         leilao_id=leilao_id,
         cliente_id=cliente_id,
@@ -136,7 +136,7 @@ def notificar_link_pagamento(leilao_id, cliente_id, id_transacao, link_pagamento
 
 def notificar_status_pagamento(leilao_id, cliente_id, id_transacao, status, valor):
     """Notificar cliente sobre status do pagamento"""
-    notificacao = pagamento_pb2.NotificacaoPagamento(
+    notificacao = generated.pagamento_pb2.NotificacaoPagamento(
         tipo='status_pagamento',
         leilao_id=leilao_id,
         cliente_id=cliente_id,
@@ -159,7 +159,7 @@ def notificar_status_pagamento(leilao_id, cliente_id, id_transacao, status, valo
 def serve():
     """Iniciar servidor gRPC"""
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    pagamento_pb2_grpc.add_PagamentoServiceServicer_to_server(PagamentoServicer(), server)
+    generated.pagamento_pb2_grpc.add_PagamentoServiceServicer_to_server(PagamentoServicer(), server)
     server.add_insecure_port('0.0.0.0:50053')
     server.start()
     print("[ms_pagamento] Servidor gRPC iniciado na porta 50053")
