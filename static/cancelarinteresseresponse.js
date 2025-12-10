@@ -1,4 +1,4 @@
-// source: lance.proto
+// source: leilao.proto
 /**
  * @fileoverview
  * @enhanceable
@@ -11,7 +11,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-goog.provide('proto.lance.Lance');
+goog.provide('proto.leilao.CancelarInteresseResponse');
 
 goog.require('jspb.BinaryReader');
 goog.require('jspb.BinaryWriter');
@@ -27,16 +27,16 @@ goog.require('jspb.Message');
  * @extends {jspb.Message}
  * @constructor
  */
-proto.lance.Lance = function(opt_data) {
+proto.leilao.CancelarInteresseResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.lance.Lance, jspb.Message);
+goog.inherits(proto.leilao.CancelarInteresseResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.lance.Lance.displayName = 'proto.lance.Lance';
+  proto.leilao.CancelarInteresseResponse.displayName = 'proto.leilao.CancelarInteresseResponse';
 }
 
 
@@ -54,8 +54,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.lance.Lance.prototype.toObject = function(opt_includeInstance) {
-  return proto.lance.Lance.toObject(opt_includeInstance, this);
+proto.leilao.CancelarInteresseResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.leilao.CancelarInteresseResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -64,16 +64,14 @@ proto.lance.Lance.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.lance.Lance} msg The msg instance to transform.
+ * @param {!proto.leilao.CancelarInteresseResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.lance.Lance.toObject = function(includeInstance, msg) {
+proto.leilao.CancelarInteresseResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-leilaoId: jspb.Message.getFieldWithDefault(msg, 1, 0),
-userId: jspb.Message.getFieldWithDefault(msg, 2, ""),
-valor: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0),
-timestamp: jspb.Message.getFieldWithDefault(msg, 4, "")
+success: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
+message: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -87,23 +85,23 @@ timestamp: jspb.Message.getFieldWithDefault(msg, 4, "")
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.lance.Lance}
+ * @return {!proto.leilao.CancelarInteresseResponse}
  */
-proto.lance.Lance.deserializeBinary = function(bytes) {
+proto.leilao.CancelarInteresseResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.lance.Lance;
-  return proto.lance.Lance.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.leilao.CancelarInteresseResponse;
+  return proto.leilao.CancelarInteresseResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.lance.Lance} msg The message object to deserialize into.
+ * @param {!proto.leilao.CancelarInteresseResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.lance.Lance}
+ * @return {!proto.leilao.CancelarInteresseResponse}
  */
-proto.lance.Lance.deserializeBinaryFromReader = function(msg, reader) {
+proto.leilao.CancelarInteresseResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -111,20 +109,12 @@ proto.lance.Lance.deserializeBinaryFromReader = function(msg, reader) {
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {number} */ (reader.readInt32());
-      msg.setLeilaoId(value);
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setSuccess(value);
       break;
     case 2:
       var value = /** @type {string} */ (reader.readString());
-      msg.setUserId(value);
-      break;
-    case 3:
-      var value = /** @type {number} */ (reader.readDouble());
-      msg.setValor(value);
-      break;
-    case 4:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setTimestamp(value);
+      msg.setMessage(value);
       break;
     default:
       reader.skipField();
@@ -139,9 +129,9 @@ proto.lance.Lance.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.lance.Lance.prototype.serializeBinary = function() {
+proto.leilao.CancelarInteresseResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.lance.Lance.serializeBinaryToWriter(this, writer);
+  proto.leilao.CancelarInteresseResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -149,112 +139,62 @@ proto.lance.Lance.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.lance.Lance} message
+ * @param {!proto.leilao.CancelarInteresseResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.lance.Lance.serializeBinaryToWriter = function(message, writer) {
+proto.leilao.CancelarInteresseResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getLeilaoId();
-  if (f !== 0) {
-    writer.writeInt32(
+  f = message.getSuccess();
+  if (f) {
+    writer.writeBool(
       1,
       f
     );
   }
-  f = message.getUserId();
+  f = message.getMessage();
   if (f.length > 0) {
     writer.writeString(
       2,
       f
     );
   }
-  f = message.getValor();
-  if (f !== 0.0) {
-    writer.writeDouble(
-      3,
-      f
-    );
-  }
-  f = message.getTimestamp();
-  if (f.length > 0) {
-    writer.writeString(
-      4,
-      f
-    );
-  }
 };
 
 
 /**
- * optional int32 leilao_id = 1;
- * @return {number}
+ * optional bool success = 1;
+ * @return {boolean}
  */
-proto.lance.Lance.prototype.getLeilaoId = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
+proto.leilao.CancelarInteresseResponse.prototype.getSuccess = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 1, false));
 };
 
 
 /**
- * @param {number} value
- * @return {!proto.lance.Lance} returns this
+ * @param {boolean} value
+ * @return {!proto.leilao.CancelarInteresseResponse} returns this
  */
-proto.lance.Lance.prototype.setLeilaoId = function(value) {
-  return jspb.Message.setProto3IntField(this, 1, value);
+proto.leilao.CancelarInteresseResponse.prototype.setSuccess = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 1, value);
 };
 
 
 /**
- * optional string user_id = 2;
+ * optional string message = 2;
  * @return {string}
  */
-proto.lance.Lance.prototype.getUserId = function() {
+proto.leilao.CancelarInteresseResponse.prototype.getMessage = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.lance.Lance} returns this
+ * @return {!proto.leilao.CancelarInteresseResponse} returns this
  */
-proto.lance.Lance.prototype.setUserId = function(value) {
+proto.leilao.CancelarInteresseResponse.prototype.setMessage = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
-};
-
-
-/**
- * optional double valor = 3;
- * @return {number}
- */
-proto.lance.Lance.prototype.getValor = function() {
-  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.lance.Lance} returns this
- */
-proto.lance.Lance.prototype.setValor = function(value) {
-  return jspb.Message.setProto3FloatField(this, 3, value);
-};
-
-
-/**
- * optional string timestamp = 4;
- * @return {string}
- */
-proto.lance.Lance.prototype.getTimestamp = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 4, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.lance.Lance} returns this
- */
-proto.lance.Lance.prototype.setTimestamp = function(value) {
-  return jspb.Message.setProto3StringField(this, 4, value);
 };
 
 

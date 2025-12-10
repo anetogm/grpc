@@ -1,14 +1,14 @@
 // Frontend agora usa gRPC-Web via Envoy
 let clienteId = undefined;
 
-// Verificar se GrpcClient está disponível
-if (typeof GrpcClient === "undefined") {
+// Verificar se proto está disponível
+if (typeof proto === "undefined") {
   console.error(
-    "GrpcClient não carregado. Verifique se grpc_client.bundle.js foi incluído."
+    "proto não carregado. Verifique se os arquivos .proto foram incluídos."
   );
 }
 
-const client = new GrpcClient.GatewayServiceClient(
+const client = new proto.gateway.GatewayServiceClient(
   "http://localhost:8080",
   null,
   null
@@ -32,7 +32,7 @@ function nowForDatetimeLocal() {
 }
 
 async function buscaLeiloes() {
-  const req = new GrpcClient.ListarLeiloesRequest();
+  const req = new proto.gateway.ListarLeiloesRequest();
   console.log("Buscando leilões via gRPC-Web...");
   client.listarLeiloes(req, {}, (err, resp) => {
     if (err) {
@@ -50,7 +50,7 @@ async function buscaLeiloes() {
       fim: l.getFim(),
       valor_inicial: l.getValorInicial(),
       status: l.getStatus(),
-    }));
+    })).filter(l => l.status === 'ativo');
     renderLeiloes(leiloes);
   });
 }
@@ -58,7 +58,7 @@ async function buscaLeiloes() {
 async function registrarInteresse(leilaoId) {
   try {
     if (!clienteId) clienteId = getUserIdFromSessionStorage();
-    const req = new GrpcClient.RegistrarInteresseRequest();
+    const req = new proto.gateway.RegistrarInteresseRequest();
     req.setLeilaoId(leilaoId);
     req.setClienteId(clienteId);
     client.registrarInteresse(req, {}, (err, resp) => {
@@ -80,7 +80,7 @@ function renderLeiloes(leiloes) {
   const container = document.getElementById("demo");
 
   if (leiloes.length === 0) {
-    container.innerHTML = "<p>Nenhum leilão encontrado</p>";
+    container.innerHTML = "<p>Nenhum leilão ativo encontrado</p>";
     return;
   }
 
@@ -123,3 +123,7 @@ if (document.getElementById("demo")) {
     buscaLeiloes();
   });
 }
+
+// Expor funções globalmente para o HTML
+window.buscaLeiloes = buscaLeiloes;
+window.registrarInteresse = registrarInteresse;

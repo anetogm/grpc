@@ -1,4 +1,4 @@
-// source: lance.proto
+// source: pagamento.proto
 /**
  * @fileoverview
  * @enhanceable
@@ -11,7 +11,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-goog.provide('proto.lance.Lance');
+goog.provide('proto.pagamento.ProcessarPagamentoRequest');
 
 goog.require('jspb.BinaryReader');
 goog.require('jspb.BinaryWriter');
@@ -27,16 +27,16 @@ goog.require('jspb.Message');
  * @extends {jspb.Message}
  * @constructor
  */
-proto.lance.Lance = function(opt_data) {
+proto.pagamento.ProcessarPagamentoRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.lance.Lance, jspb.Message);
+goog.inherits(proto.pagamento.ProcessarPagamentoRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.lance.Lance.displayName = 'proto.lance.Lance';
+  proto.pagamento.ProcessarPagamentoRequest.displayName = 'proto.pagamento.ProcessarPagamentoRequest';
 }
 
 
@@ -54,8 +54,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.lance.Lance.prototype.toObject = function(opt_includeInstance) {
-  return proto.lance.Lance.toObject(opt_includeInstance, this);
+proto.pagamento.ProcessarPagamentoRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.pagamento.ProcessarPagamentoRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -64,16 +64,16 @@ proto.lance.Lance.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.lance.Lance} msg The msg instance to transform.
+ * @param {!proto.pagamento.ProcessarPagamentoRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.lance.Lance.toObject = function(includeInstance, msg) {
+proto.pagamento.ProcessarPagamentoRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
 leilaoId: jspb.Message.getFieldWithDefault(msg, 1, 0),
-userId: jspb.Message.getFieldWithDefault(msg, 2, ""),
+clienteId: jspb.Message.getFieldWithDefault(msg, 2, ""),
 valor: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0),
-timestamp: jspb.Message.getFieldWithDefault(msg, 4, "")
+moeda: jspb.Message.getFieldWithDefault(msg, 4, "")
   };
 
   if (includeInstance) {
@@ -87,23 +87,23 @@ timestamp: jspb.Message.getFieldWithDefault(msg, 4, "")
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.lance.Lance}
+ * @return {!proto.pagamento.ProcessarPagamentoRequest}
  */
-proto.lance.Lance.deserializeBinary = function(bytes) {
+proto.pagamento.ProcessarPagamentoRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.lance.Lance;
-  return proto.lance.Lance.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.pagamento.ProcessarPagamentoRequest;
+  return proto.pagamento.ProcessarPagamentoRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.lance.Lance} msg The message object to deserialize into.
+ * @param {!proto.pagamento.ProcessarPagamentoRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.lance.Lance}
+ * @return {!proto.pagamento.ProcessarPagamentoRequest}
  */
-proto.lance.Lance.deserializeBinaryFromReader = function(msg, reader) {
+proto.pagamento.ProcessarPagamentoRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -116,7 +116,7 @@ proto.lance.Lance.deserializeBinaryFromReader = function(msg, reader) {
       break;
     case 2:
       var value = /** @type {string} */ (reader.readString());
-      msg.setUserId(value);
+      msg.setClienteId(value);
       break;
     case 3:
       var value = /** @type {number} */ (reader.readDouble());
@@ -124,7 +124,7 @@ proto.lance.Lance.deserializeBinaryFromReader = function(msg, reader) {
       break;
     case 4:
       var value = /** @type {string} */ (reader.readString());
-      msg.setTimestamp(value);
+      msg.setMoeda(value);
       break;
     default:
       reader.skipField();
@@ -139,9 +139,9 @@ proto.lance.Lance.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.lance.Lance.prototype.serializeBinary = function() {
+proto.pagamento.ProcessarPagamentoRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.lance.Lance.serializeBinaryToWriter(this, writer);
+  proto.pagamento.ProcessarPagamentoRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -149,11 +149,11 @@ proto.lance.Lance.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.lance.Lance} message
+ * @param {!proto.pagamento.ProcessarPagamentoRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.lance.Lance.serializeBinaryToWriter = function(message, writer) {
+proto.pagamento.ProcessarPagamentoRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getLeilaoId();
   if (f !== 0) {
@@ -162,7 +162,7 @@ proto.lance.Lance.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getUserId();
+  f = message.getClienteId();
   if (f.length > 0) {
     writer.writeString(
       2,
@@ -176,7 +176,7 @@ proto.lance.Lance.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getTimestamp();
+  f = message.getMoeda();
   if (f.length > 0) {
     writer.writeString(
       4,
@@ -190,34 +190,34 @@ proto.lance.Lance.serializeBinaryToWriter = function(message, writer) {
  * optional int32 leilao_id = 1;
  * @return {number}
  */
-proto.lance.Lance.prototype.getLeilaoId = function() {
+proto.pagamento.ProcessarPagamentoRequest.prototype.getLeilaoId = function() {
   return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
 };
 
 
 /**
  * @param {number} value
- * @return {!proto.lance.Lance} returns this
+ * @return {!proto.pagamento.ProcessarPagamentoRequest} returns this
  */
-proto.lance.Lance.prototype.setLeilaoId = function(value) {
+proto.pagamento.ProcessarPagamentoRequest.prototype.setLeilaoId = function(value) {
   return jspb.Message.setProto3IntField(this, 1, value);
 };
 
 
 /**
- * optional string user_id = 2;
+ * optional string cliente_id = 2;
  * @return {string}
  */
-proto.lance.Lance.prototype.getUserId = function() {
+proto.pagamento.ProcessarPagamentoRequest.prototype.getClienteId = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.lance.Lance} returns this
+ * @return {!proto.pagamento.ProcessarPagamentoRequest} returns this
  */
-proto.lance.Lance.prototype.setUserId = function(value) {
+proto.pagamento.ProcessarPagamentoRequest.prototype.setClienteId = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -226,34 +226,34 @@ proto.lance.Lance.prototype.setUserId = function(value) {
  * optional double valor = 3;
  * @return {number}
  */
-proto.lance.Lance.prototype.getValor = function() {
+proto.pagamento.ProcessarPagamentoRequest.prototype.getValor = function() {
   return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
 };
 
 
 /**
  * @param {number} value
- * @return {!proto.lance.Lance} returns this
+ * @return {!proto.pagamento.ProcessarPagamentoRequest} returns this
  */
-proto.lance.Lance.prototype.setValor = function(value) {
+proto.pagamento.ProcessarPagamentoRequest.prototype.setValor = function(value) {
   return jspb.Message.setProto3FloatField(this, 3, value);
 };
 
 
 /**
- * optional string timestamp = 4;
+ * optional string moeda = 4;
  * @return {string}
  */
-proto.lance.Lance.prototype.getTimestamp = function() {
+proto.pagamento.ProcessarPagamentoRequest.prototype.getMoeda = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 4, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.lance.Lance} returns this
+ * @return {!proto.pagamento.ProcessarPagamentoRequest} returns this
  */
-proto.lance.Lance.prototype.setTimestamp = function(value) {
+proto.pagamento.ProcessarPagamentoRequest.prototype.setMoeda = function(value) {
   return jspb.Message.setProto3StringField(this, 4, value);
 };
 

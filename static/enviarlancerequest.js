@@ -11,7 +11,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-goog.provide('proto.lance.Lance');
+goog.provide('proto.lance.EnviarLanceRequest');
 
 goog.require('jspb.BinaryReader');
 goog.require('jspb.BinaryWriter');
@@ -27,16 +27,16 @@ goog.require('jspb.Message');
  * @extends {jspb.Message}
  * @constructor
  */
-proto.lance.Lance = function(opt_data) {
+proto.lance.EnviarLanceRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.lance.Lance, jspb.Message);
+goog.inherits(proto.lance.EnviarLanceRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.lance.Lance.displayName = 'proto.lance.Lance';
+  proto.lance.EnviarLanceRequest.displayName = 'proto.lance.EnviarLanceRequest';
 }
 
 
@@ -54,8 +54,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.lance.Lance.prototype.toObject = function(opt_includeInstance) {
-  return proto.lance.Lance.toObject(opt_includeInstance, this);
+proto.lance.EnviarLanceRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.lance.EnviarLanceRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -64,16 +64,15 @@ proto.lance.Lance.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.lance.Lance} msg The msg instance to transform.
+ * @param {!proto.lance.EnviarLanceRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.lance.Lance.toObject = function(includeInstance, msg) {
+proto.lance.EnviarLanceRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
 leilaoId: jspb.Message.getFieldWithDefault(msg, 1, 0),
 userId: jspb.Message.getFieldWithDefault(msg, 2, ""),
-valor: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0),
-timestamp: jspb.Message.getFieldWithDefault(msg, 4, "")
+valor: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0)
   };
 
   if (includeInstance) {
@@ -87,23 +86,23 @@ timestamp: jspb.Message.getFieldWithDefault(msg, 4, "")
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.lance.Lance}
+ * @return {!proto.lance.EnviarLanceRequest}
  */
-proto.lance.Lance.deserializeBinary = function(bytes) {
+proto.lance.EnviarLanceRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.lance.Lance;
-  return proto.lance.Lance.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.lance.EnviarLanceRequest;
+  return proto.lance.EnviarLanceRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.lance.Lance} msg The message object to deserialize into.
+ * @param {!proto.lance.EnviarLanceRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.lance.Lance}
+ * @return {!proto.lance.EnviarLanceRequest}
  */
-proto.lance.Lance.deserializeBinaryFromReader = function(msg, reader) {
+proto.lance.EnviarLanceRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -122,10 +121,6 @@ proto.lance.Lance.deserializeBinaryFromReader = function(msg, reader) {
       var value = /** @type {number} */ (reader.readDouble());
       msg.setValor(value);
       break;
-    case 4:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setTimestamp(value);
-      break;
     default:
       reader.skipField();
       break;
@@ -139,9 +134,9 @@ proto.lance.Lance.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.lance.Lance.prototype.serializeBinary = function() {
+proto.lance.EnviarLanceRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.lance.Lance.serializeBinaryToWriter(this, writer);
+  proto.lance.EnviarLanceRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -149,11 +144,11 @@ proto.lance.Lance.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.lance.Lance} message
+ * @param {!proto.lance.EnviarLanceRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.lance.Lance.serializeBinaryToWriter = function(message, writer) {
+proto.lance.EnviarLanceRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getLeilaoId();
   if (f !== 0) {
@@ -176,13 +171,6 @@ proto.lance.Lance.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getTimestamp();
-  if (f.length > 0) {
-    writer.writeString(
-      4,
-      f
-    );
-  }
 };
 
 
@@ -190,16 +178,16 @@ proto.lance.Lance.serializeBinaryToWriter = function(message, writer) {
  * optional int32 leilao_id = 1;
  * @return {number}
  */
-proto.lance.Lance.prototype.getLeilaoId = function() {
+proto.lance.EnviarLanceRequest.prototype.getLeilaoId = function() {
   return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
 };
 
 
 /**
  * @param {number} value
- * @return {!proto.lance.Lance} returns this
+ * @return {!proto.lance.EnviarLanceRequest} returns this
  */
-proto.lance.Lance.prototype.setLeilaoId = function(value) {
+proto.lance.EnviarLanceRequest.prototype.setLeilaoId = function(value) {
   return jspb.Message.setProto3IntField(this, 1, value);
 };
 
@@ -208,16 +196,16 @@ proto.lance.Lance.prototype.setLeilaoId = function(value) {
  * optional string user_id = 2;
  * @return {string}
  */
-proto.lance.Lance.prototype.getUserId = function() {
+proto.lance.EnviarLanceRequest.prototype.getUserId = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.lance.Lance} returns this
+ * @return {!proto.lance.EnviarLanceRequest} returns this
  */
-proto.lance.Lance.prototype.setUserId = function(value) {
+proto.lance.EnviarLanceRequest.prototype.setUserId = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -226,35 +214,17 @@ proto.lance.Lance.prototype.setUserId = function(value) {
  * optional double valor = 3;
  * @return {number}
  */
-proto.lance.Lance.prototype.getValor = function() {
+proto.lance.EnviarLanceRequest.prototype.getValor = function() {
   return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
 };
 
 
 /**
  * @param {number} value
- * @return {!proto.lance.Lance} returns this
+ * @return {!proto.lance.EnviarLanceRequest} returns this
  */
-proto.lance.Lance.prototype.setValor = function(value) {
+proto.lance.EnviarLanceRequest.prototype.setValor = function(value) {
   return jspb.Message.setProto3FloatField(this, 3, value);
-};
-
-
-/**
- * optional string timestamp = 4;
- * @return {string}
- */
-proto.lance.Lance.prototype.getTimestamp = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 4, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.lance.Lance} returns this
- */
-proto.lance.Lance.prototype.setTimestamp = function(value) {
-  return jspb.Message.setProto3StringField(this, 4, value);
 };
 
 

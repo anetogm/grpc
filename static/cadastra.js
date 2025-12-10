@@ -1,5 +1,5 @@
 // Cadastro via gRPC-Web (Envoy)
-const client = new GrpcClient.GatewayServiceClient(
+const client = new proto.gateway.GatewayServiceClient(
   "http://localhost:8080",
   null,
   null
@@ -25,7 +25,7 @@ async function cadastrarLeilao(event) {
   const fim = document.getElementById("fim").value;
 
   try {
-    const req = new GrpcClient.CriarLeilaoRequest();
+    const req = new proto.leilao.CriarLeilaoRequest();
     req.setNome(item);
     req.setDescricao(descricao);
     req.setValorInicial(valor_inicial);
