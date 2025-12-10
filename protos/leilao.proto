@@ -54,7 +54,7 @@ message CancelarInteresseResponse {
     string message = 2;
 }
 
-// Notificações em tempo real
+// Notificações em tempo rx'eal
 message NotificacaoLeilao {
     string tipo = 1; // "leilao_iniciado", "leilao_finalizado"
     int32 leilao_id = 2;

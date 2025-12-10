@@ -5,6 +5,10 @@ import pika
 import requests
 from flask import Flask, request, jsonify
 
+# TODO matar o pika e usar grpc
+# TODO refatorar o callback pra gerar o link
+# TODO fazer o serve da main
+
 consumer_connection = None
 consumer_channel = None
 
@@ -87,19 +91,6 @@ def callback_leilao_vencedor(ch, method, properties, body):
         print(f"[Pagamento] Publicado link_pagamento e status_pagamento inicial para leilão {leilao_id}.")
     except Exception as e:
         print(f"[Pagamento] Erro ao processar mensagem: {e}")
-
-def iniciar_consumidor():
-    global consumer_connection, consumer_channel
-    consumer_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-    consumer_channel = consumer_connection.channel()
-    
-    consumer_channel.exchange_declare(exchange='leilao_vencedor', exchange_type='fanout')
-    result = consumer_channel.queue_declare(queue='', exclusive=True)
-    queue_name = result.method.queue
-    consumer_channel.queue_bind(exchange='leilao_vencedor', queue=queue_name)
-    consumer_channel.basic_consume(queue=queue_name, on_message_callback=callback_leilao_vencedor, auto_ack=True)
-    print("[Pagamento] Consumindo leilao_vencedor.")
-    consumer_channel.start_consuming()
 
 app = Flask(__name__)
 

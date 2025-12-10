@@ -5,6 +5,11 @@ import json
 import os
 import threading
 
+# TODO trocar pika por grpc
+# TODO refazer o publish_messager utilizando NotificacaoLance
+# TODO implementar a classe com todas as funcoes
+# TODO comecar o serve da main
+
 lock = threading.Lock()
 app = Flask(__name__)
 
@@ -87,27 +92,6 @@ def publish_message(routing_key, message):
             publisher_connection = None
             publisher_channel = None
             return False
-
-def publicar_fanout(exchange, message):
-    global publisher_connection, publisher_channel
-    
-    with publisher_lock:
-        try:
-            if publisher_connection is None or publisher_connection.is_closed:
-                publisher_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-                publisher_channel = publisher_connection.channel()
-                publisher_channel.exchange_declare(exchange='leilao_vencedor', exchange_type='fanout')
-            result = publisher_channel.queue_declare(queue='', exclusive=True)
-            queue_name = result.method.queue
-            publisher_channel.queue_bind(exchange='leilao_vencedor', queue=queue_name)
-            
-            publisher_channel.basic_publish(exchange=exchange, routing_key='', body=message)
-            return True
-        except Exception as e:
-            print(f"[ms_lance] Error publishing to fanout: {e}")
-            publisher_connection = None
-            publisher_channel = None
-            return False                            
 
 @app.post("/lance")
 def receber_lance():

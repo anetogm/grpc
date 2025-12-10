@@ -7,6 +7,10 @@ from flask import Flask, jsonify, request
 import generated.leilao_pb2_grpc as leilao_pb2_grpc
 import generated.leilao_pb2 as leilao_pb2
 
+# TODO mudar o publicar evento
+# TODO implementar criar leiloes
+# TODO implementar a classe com todas as funcoes
+# TODO criar leiloes iniciais
 
 inicio = datetime.now() + timedelta(seconds=2)
 fim = inicio + timedelta(minutes=2)
@@ -39,20 +43,6 @@ publisher_lock = threading.Lock()
 lock = threading.Lock()
 
 app = Flask(__name__)
-
-def start():
-	try:
-		connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-		channel = connection.channel()
-
-		channel.queue_declare(queue='leilao_iniciado')
-		channel.queue_declare(queue='leilao_finalizado')
-		
-		connection.close()
-		print("[ms_leilao] RabbitMQ queues declared")
-
-	except Exception as e:
-		print(f"[ms_leilao] RabbitMQ: {e}")
 
 def cria_leilao():
 	try:

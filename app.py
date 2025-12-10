@@ -9,6 +9,8 @@ import json
 import time
 import redis
 
+# TODO refazer a logica do sse agora que tamo usando grpc no lugar do rabbitmq
+
 lock = threading.Lock()
 rabbitmq_lock = threading.Lock()
 channel = None

@@ -45,28 +45,8 @@ message LeilaoAtivo {
     string fim = 6;
 }
 
-message IniciarLeilaoRequest {
-    LeilaoAtivo leilao = 1;
-}
-
-message IniciarLeilaoResponse {
-    bool success = 1;
-}
-
-message FinalizarLeilaoRequest {
-    int32 leilao_id = 1;
-}
-
-message FinalizarLeilaoResponse {
-    bool success = 1;
-    string id_vencedor = 2;
-    double valor = 3;
-}
-
 // Serviço de Lance
 service LanceService {
     rpc EnviarLance(EnviarLanceRequest) returns (EnviarLanceResponse);
     rpc StreamLances(StreamLancesRequest) returns (stream NotificacaoLance);
-    rpc IniciarLeilao(IniciarLeilaoRequest) returns (IniciarLeilaoResponse);
-    rpc FinalizarLeilao(FinalizarLeilaoRequest) returns (FinalizarLeilaoResponse);
 }
