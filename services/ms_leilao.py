@@ -40,19 +40,43 @@ lock = threading.Lock()
 
 app = Flask(__name__)
 
-def start():
-	try:
-		connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-		channel = connection.channel()
+if False:
+	import grpc
+	from generated import leilao_pb2, leilao_pb2_grpc
 
-		channel.queue_declare(queue='leilao_iniciado')
-		channel.queue_declare(queue='leilao_finalizado')
+	class LeilaoServiceImpl(leilao_pb2_grpc.LeilaoServiceServicer):
+		"""Concrete implementation of the Leilao service"""
 		
-		connection.close()
-		print("[ms_leilao] RabbitMQ queues declared")
+		def ListarLeiloes(self, request, context):
+			response = leilao_pb2.ListarLeiloesResponse()
+			for leilao in leiloes:
+				item = response.leiloes.add()
+				item.id = leilao['id']
+				item.nome = leilao['nome']
+				# ... populate other fields
+			return response
+		
+		def CriarLeilao(self, request, context):
+			# Implementation here
+			pass
+		
+		def RegistrarInteresse(self, request, context):
+			# Implementation here
+			pass
+		
+		def CancelarInteresse(self, request, context):
+			# Implementation here
+			pass
+		
+		def StreamNotificacoes(self, request, context):
+			# Implementation here - yield notifications
+			pass
 
-	except Exception as e:
-		print(f"[ms_leilao] RabbitMQ: {e}")
+	# In your main server setup:
+	if __name__ == "__main__":
+		server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+		leilao_pb2_grpc.add_LeilaoServiceServicer_to_server(LeilaoServiceImpl(), server)
+		# ... rest of setup
 
 def cria_leilao():
 	try:
