@@ -6,3 +6,7 @@ services:
     volumes:
       - ./envoy.yaml:/etc/envoy/envoy.yaml
     command: ["envoy", "-c", "/etc/envoy/envoy.yaml"]
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"

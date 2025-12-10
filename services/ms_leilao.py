@@ -1,300 +1,198 @@
-import grpc
-from concurrent import futures
+import pika
 import time
 from datetime import datetime, timedelta
 import threading
-import sys
-import os
-
-# Adicionar diretório raiz ao path para importar generated
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import generated.leilao_pb2
-import generated.leilao_pb2_grpc
-import generated.lance_pb2
-import generated.lance_pb2_grpc
+from flask import Flask, jsonify, request
 
 inicio = datetime.now() + timedelta(seconds=2)
 fim = inicio + timedelta(minutes=2)
 
 leiloes = [
-    {
-        'id': 1,
-        'nome': 'Notebook',
-        'descricao': 'Macbook Pro 16" M2 Max assinado pelo Steve Jobs',
-        'valor_inicial': 1000,
-        'inicio': inicio,
+	{
+		'id': 1,
+		'nome': 'Notebook',
+		'descricao': 'Macbook Pro 16" M2 Max assinado pelo Steve Jobs',
+		'valor_inicial': 1000,
+		'inicio': inicio,
+		'fim': fim,
+		'status': 'ativo'
+	},
+	{
+		'id': 2,
+		'nome':'celular',
+		'descricao': 'Iphone 17 Pro Max Turbo assinado pelo Steve Jobs',
+		'valor_inicial': 2000,
+		'inicio': inicio,
         'fim': fim,
-        'status': 'ativo'
-    },
-    {
-        'id': 2,
-        'nome': 'celular',
-        'descricao': 'Iphone 17 Pro Max Turbo assinado pelo Steve Jobs',
-        'valor_inicial': 2000,
-        'inicio': inicio,
-        'fim': fim,
-        'status': 'ativo'
-    }
+		'status': 'ativo'
+	}
 ]
 
+publisher_connection = None
+publisher_channel = None
+publisher_lock = threading.Lock()
+
 lock = threading.Lock()
-clientes_interessados = {}  # {leilao_id: set(cliente_ids)}
-streams_ativos = {}  # {cliente_id: [queue]}
 
+app = Flask(__name__)
 
-class LeilaoServicer(generated.leilao_pb2_grpc.LeilaoServiceServicer):
-    
-    def CriarLeilao(self, request, context):
-        try:
-            with lock:
-                next_id = max((int(l['id']) for l in leiloes), default=0) + 1
-            
-            try:
-                inicio_dt = datetime.fromisoformat(request.inicio) if request.inicio else datetime.now() + timedelta(seconds=2)
-            except Exception:
-                inicio_dt = datetime.now() + timedelta(seconds=2)
-            
-            try:
-                fim_dt = datetime.fromisoformat(request.fim) if request.fim else inicio_dt + timedelta(minutes=50)
-            except Exception:
-                fim_dt = inicio_dt + timedelta(minutes=50)
-            
-            leilao = {
-                'id': next_id,
-                'nome': request.nome,
-                'descricao': request.descricao,
-                'valor_inicial': request.valor_inicial,
-                'inicio': inicio_dt,
-                'fim': fim_dt,
-                'status': 'ativo'
-            }
-            
-            with lock:
-                leiloes.append(leilao)
-            
-            # Iniciar gerenciamento do leilão em thread separada
-            t = threading.Thread(target=gerenciar_leilao, args=(leilao,), daemon=True)
-            t.start()
-            
-            # Criar resposta
-            leilao_pb = generated.leilao_pb2.Leilao(
-                id=next_id,
-                nome=request.nome,
-                descricao=request.descricao,
-                valor_inicial=request.valor_inicial,
-                inicio=inicio_dt.isoformat(),
-                fim=fim_dt.isoformat(),
-                status='ativo'
-            )
-            
-            return generated.leilao_pb2.CriarLeilaoResponse(
-                success=True,
-                message="Leilão cadastrado com sucesso",
-                leilao_id=next_id,
-                leilao=leilao_pb
-            )
-        except Exception as e:
-            return generated.leilao_pb2.CriarLeilaoResponse(
-                success=False,
-                message=f"Erro ao criar leilão: {str(e)}"
-            )
-    
-    def ListarLeiloes(self, request, context):
-        with lock:
-            leiloes_pb = []
-            for l in leiloes:
-                leilao_pb = generated.leilao_pb2.Leilao(
-                    id=l['id'],
-                    nome=l['nome'],
-                    descricao=l['descricao'],
-                    valor_inicial=l['valor_inicial'],
-                    inicio=l['inicio'].isoformat() if isinstance(l['inicio'], datetime) else str(l['inicio']),
-                    fim=l['fim'].isoformat() if isinstance(l['fim'], datetime) else str(l['fim']),
-                    status=l['status']
-                )
-                leiloes_pb.append(leilao_pb)
-        
-        return generated.leilao_pb2.ListarLeiloesResponse(leiloes=leiloes_pb)
-    
-    def RegistrarInteresse(self, request, context):
-        leilao_id = request.leilao_id
-        cliente_id = request.cliente_id
-        
-        with lock:
-            if leilao_id not in clientes_interessados:
-                clientes_interessados[leilao_id] = set()
-            clientes_interessados[leilao_id].add(cliente_id)
-        
-        print(f"[ms_leilao] Cliente {cliente_id} registrou interesse no leilão {leilao_id}")
-        
-        return generated.leilao_pb2.RegistrarInteresseResponse(
-            success=True,
-            message="Interesse registrado com sucesso"
-        )
-    
-    def CancelarInteresse(self, request, context):
-        leilao_id = request.leilao_id
-        cliente_id = request.cliente_id
-        
-        with lock:
-            if leilao_id in clientes_interessados:
-                clientes_interessados[leilao_id].discard(cliente_id)
-                if len(clientes_interessados[leilao_id]) == 0:
-                    del clientes_interessados[leilao_id]
-        
-        print(f"[ms_leilao] Cliente {cliente_id} cancelou interesse no leilão {leilao_id}")
-        
-        return generated.leilao_pb2.CancelarInteresseResponse(
-            success=True,
-            message="Interesse cancelado com sucesso"
-        )
-    
-    def StreamNotificacoes(self, request, context):
-        """Stream de notificações para um cliente específico"""
-        cliente_id = request.cliente_id
-        print(f"[ms_leilao] Cliente {cliente_id} conectado ao stream de notificações")
-        
-        # Criar fila para este cliente
-        import queue
-        notification_queue = queue.Queue()
-        
-        with lock:
-            if cliente_id not in streams_ativos:
-                streams_ativos[cliente_id] = []
-            streams_ativos[cliente_id].append(notification_queue)
-        
-        try:
-            while context.is_active():
-                try:
-                    # Aguardar notificação com timeout
-                    notificacao = notification_queue.get(timeout=1.0)
-                    yield notificacao
-                except:
-                    # Timeout, continuar esperando
-                    pass
-        finally:
-            # Remover fila ao desconectar
-            with lock:
-                if cliente_id in streams_ativos:
-                    streams_ativos[cliente_id].remove(notification_queue)
-                    if len(streams_ativos[cliente_id]) == 0:
-                        del streams_ativos[cliente_id]
-            print(f"[ms_leilao] Cliente {cliente_id} desconectado do stream")
+def start():
+	try:
+		connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+		channel = connection.channel()
 
+		channel.queue_declare(queue='leilao_iniciado')
+		channel.queue_declare(queue='leilao_finalizado')
+		
+		connection.close()
+		print("[ms_leilao] RabbitMQ queues declared")
 
-def notificar_clientes_leilao(leilao_id, tipo, leilao_data):
-    """Enviar notificação para todos os clientes interessados em um leilão"""
-    with lock:
-        if leilao_id not in clientes_interessados:
-            return
-        
-        clientes = list(clientes_interessados[leilao_id])
-    
-    leilao_pb = generated.leilao_pb2.Leilao(
-        id=leilao_data['id'],
-        nome=leilao_data['nome'],
-        descricao=leilao_data['descricao'],
-        valor_inicial=leilao_data['valor_inicial'],
-        inicio=leilao_data['inicio'].isoformat() if isinstance(leilao_data['inicio'], datetime) else str(leilao_data['inicio']),
-        fim=leilao_data['fim'].isoformat() if isinstance(leilao_data['fim'], datetime) else str(leilao_data['fim']),
-        status=leilao_data['status']
-    )
-    
-    notificacao = generated.leilao_pb2.NotificacaoLeilao(
-        tipo=tipo,
-        leilao_id=leilao_id,
-        leilao=leilao_pb
-    )
-    
-    with lock:
-        for cliente_id in clientes:
-            if cliente_id in streams_ativos:
-                for queue in streams_ativos[cliente_id]:
-                    try:
-                        queue.put_nowait(notificacao)
-                    except:
-                        pass
+	except Exception as e:
+		print(f"[ms_leilao] RabbitMQ: {e}")
+
+def cria_leilao():
+	try:
+		data = request.get_json(silent=True) or {}
+		if not data:
+			data = {k: v for k, v in request.form.items()}
+
+		nome = data.get('item') or data.get('nome') or ''
+		descricao = data.get('descricao', '')
+		valor_inicial = data.get('valor_inicial') or data.get('valor') or 0
+		inicio_raw = data.get('inicio', '')
+		fim_raw = data.get('fim', '')
+
+		with lock:
+			next_id = max((int(l['id']) for l in leiloes), default=0) + 1
+
+		try:
+			inicio_dt = datetime.fromisoformat(inicio_raw) if inicio_raw else datetime.now() + timedelta(seconds=2)
+		except Exception:
+			inicio_dt = datetime.now() + timedelta(seconds=2)
+
+		try:
+			fim_dt = datetime.fromisoformat(fim_raw) if fim_raw else inicio_dt + timedelta(minutes=50)
+		except Exception:
+			fim_dt = inicio_dt + timedelta(minutes=50)
+
+		leilao = {
+			'id': next_id,
+			'nome': nome,
+			'descricao': descricao,
+			'valor_inicial': valor_inicial,
+			'inicio': inicio_dt,
+			'fim': fim_dt,
+			'status': 'ativo'
+		}
+
+		with lock:
+			leiloes.append(leilao)
+
+		t = threading.Thread(target=gerenciar_leilao, args=(leilao,), daemon=True)
+		t.start()
+
+		return jsonify({"message": "Leilão cadastrado com sucesso", "leilao_id": next_id, "leilao": leilao}), 201
+	except Exception as e:
+		return jsonify({"error": str(e)}), 500
+
+def publicar_evento(fila, mensagem):
+	global publisher_connection, publisher_channel
+	
+	with publisher_lock:
+		try:
+			if publisher_connection is None or publisher_connection.is_closed:
+				publisher_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+				publisher_channel = publisher_connection.channel()
+				publisher_channel.queue_declare(queue='leilao_iniciado')
+				publisher_channel.queue_declare(queue='leilao_finalizado')
+			
+			publisher_channel.basic_publish(exchange='', routing_key=fila, body=mensagem)
+			print(f"[x] Evento publicado em {fila}: {mensagem}")
+			return True
+		except Exception as e:
+			print(f"[ms_leilao] Error publishing event: {e}")
+			publisher_connection = None
+			publisher_channel = None
+			return False
+
+def converte_datetime(ativos):
+	res = []
+	for leilao in ativos:
+		item = leilao.copy()
+		for campo in ("inicio", "fim"):
+			valor = item.get(campo)
+			if isinstance(valor, datetime):
+				item[campo] = valor.isoformat()
+		res.append(item)
+	return res
 
 def gerenciar_leilao(leilao):
-    """Gerencia o ciclo de vida de um leilão"""
-    leilao_id = leilao['id']
-    
-    # Aguardar até o início
-    tempo_ate_inicio = (leilao['inicio'] - datetime.now()).total_seconds()
-    if tempo_ate_inicio > 0:
-        time.sleep(tempo_ate_inicio)
-    
-    leilao['status'] = 'ativo'
-    print(f"[ms_leilao] Leilão {leilao_id} iniciado")
-    
-    # Notificar via gRPC o microsserviço de lances que leilão iniciou
-    try:
-        with grpc.insecure_channel('localhost:50052') as channel:
-            stub = generated.lance_pb2_grpc.LanceServiceStub(channel)
-            leilao_ativo = generated.lance_pb2.LeilaoAtivo(
-                id=leilao_id,
-                nome=leilao['nome'],
-                descricao=leilao['descricao'],
-                valor_inicial=leilao['valor_inicial'],
-                inicio=leilao['inicio'].isoformat(),
-                fim=leilao['fim'].isoformat()
-            )
-            request = generated.lance_pb2.IniciarLeilaoRequest(leilao=leilao_ativo)
-            stub.IniciarLeilao(request)
-    except Exception as e:
-        print(f"[ms_leilao] Erro ao notificar início do leilão: {e}")
-    
-    # Notificar clientes interessados
-    notificar_clientes_leilao(leilao_id, "leilao_iniciado", leilao)
-    
-    # Aguardar até o fim
-    tempo_ate_fim = (leilao['fim'] - datetime.now()).total_seconds()
-    if tempo_ate_fim > 0:
-        time.sleep(tempo_ate_fim)
-    
-    leilao['status'] = 'encerrado'
-    print(f"[ms_leilao] Leilão {leilao_id} finalizado")
-    
-    # Notificar via gRPC o microsserviço de lances que leilão finalizou
-    try:
-        with grpc.insecure_channel('localhost:50052') as channel:
-            stub = generated.lance_pb2_grpc.LanceServiceStub(channel)
-            request = generated.lance_pb2.FinalizarLeilaoRequest(leilao_id=leilao_id)
-            response = stub.FinalizarLeilao(request)
-            
-            # Se houver vencedor, notificar clientes
-            if response.success and response.id_vencedor:
-                # Aqui poderíamos notificar o serviço de pagamento
-                print(f"[ms_leilao] Vencedor do leilão {leilao_id}: {response.id_vencedor} - R$ {response.valor}")
-    except Exception as e:
-        print(f"[ms_leilao] Erro ao finalizar leilão: {e}")
-    
-    # Notificar clientes interessados
-    notificar_clientes_leilao(leilao_id, "leilao_finalizado", leilao)
+	tempo_ate_inicio = (leilao['inicio'] - datetime.now()).total_seconds()
+	if tempo_ate_inicio > 0:
+		time.sleep(tempo_ate_inicio)
+	leilao['status'] = 'ativo'
+	publicar_evento('leilao_iniciado', f"{leilao['id']},{leilao['nome']},{leilao['descricao']},{leilao['valor_inicial']},{leilao['inicio']},{leilao['fim']}")
 
+	tempo_ate_fim = (leilao['fim'] - datetime.now()).total_seconds()
+	if tempo_ate_fim > 0:
+		time.sleep(tempo_ate_fim)
+	leilao['status'] = 'encerrado'
+	publicar_evento('leilao_finalizado', f"{leilao['id']},{leilao['nome']},{leilao['descricao']},{leilao['valor_inicial']},{leilao['valor_inicial']},{leilao['fim']}")
 
-def serve():
-    """Iniciar servidor gRPC"""
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    generated.leilao_pb2_grpc.add_LeilaoServiceServicer_to_server(LeilaoServicer(), server)
-    server.add_insecure_port('0.0.0.0:50051')
-    server.start()
-    print("[ms_leilao] Servidor gRPC iniciado na porta 50051")
-    
-    # Iniciar gerenciamento dos leilões existentes
+def main():
+	threads = []
+	for leilao in leiloes:
+		t = threading.Thread(target=gerenciar_leilao, args=(leilao,))
+		t.start()
+		threads.append(t)
+	for t in threads:
+		t.join()
+
+@app.post("/cadastra_leilao")
+def cadastra():
+	return cria_leilao()
+
+leiloes_ativos = {}
+lances_atuais = {}
+
+@app.get("/leiloes")
+def get_ativos():
+	with lock:
+		snapshot = leiloes
+	ativos = esta_ativo(snapshot)
+	ativos = converte_datetime(ativos)
+	return jsonify(ativos)
+
+def esta_ativo(leiloes):
+    agora = datetime.now()
+    ativos = []
+
     for leilao in leiloes:
-        t = threading.Thread(target=gerenciar_leilao, args=(leilao,), daemon=True)
-        t.start()
-    
-    try:
-        server.wait_for_termination()
-    except KeyboardInterrupt:
-        print("[ms_leilao] Servidor encerrado")
-        server.stop(0)
+        inicio = leilao.get('inicio')
+        fim = leilao.get('fim')
+        status = leilao.get('status')
 
+        if isinstance(inicio, str):
+            inicio = datetime.fromisoformat(inicio)
+            
+        if isinstance(fim, str):
+            fim = datetime.fromisoformat(fim)
+
+        if status == 'ativo' or (inicio <= agora < fim):
+            ativos.append(leilao)
+            
+    return ativos
 
 if __name__ == "__main__":
-    print("[ms_leilao] Iniciando servidor gRPC...")
-    serve()
+	print("[MS Leilao] Gerenciando leilões...")
+	
+	start()
+	time.sleep(0.5)
+	
+	with lock:
+		for i, l in enumerate(leiloes):
+			l['id'] = i + 1
+
+	threading.Thread(target=main, daemon=True).start()
+	app.run(host="127.0.0.1", port=4447, debug=False, use_reloader=False)
  

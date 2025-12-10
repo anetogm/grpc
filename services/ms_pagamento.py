@@ -1,43 +1,57 @@
-import grpc
-from concurrent import futures
-import threading
+import json
 import time
+import threading
+import pika
 import requests
-import sys
-import os
+from flask import Flask, request, jsonify
 
-# Adicionar diretório raiz ao path para importar generated
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+consumer_connection = None
+consumer_channel = None
 
-import generated.pagamento_pb2
-import generated.pagamento_pb2_grpc
+publisher_connection = None
+publisher_channel = None
+publisher_lock = threading.Lock()
 
-lock = threading.Lock()
-streams_ativos = {}  # {cliente_id: [queue]}
-
-
-class PagamentoServicer(generated.pagamento_pb2_grpc.PagamentoServiceServicer):
+def publish_message(routing_key, message_dict):
+    global publisher_connection, publisher_channel
     
-    def NotificarVencedor(self, request, context):
-        """Recebe notificação de vencedor e inicia processo de pagamento"""
-        leilao_id = request.leilao_id
-        id_vencedor = request.id_vencedor
-        valor = request.valor
-        
-        print(f'[Pagamento] Vencedor notificado: Leilão {leilao_id}, Cliente {id_vencedor}, Valor R$ {valor}')
-        
-        # Fazer requisição para serviço externo de pagamento
+    with publisher_lock:
+        try:
+            if publisher_connection is None or publisher_connection.is_closed:
+                publisher_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+                publisher_channel = publisher_connection.channel()
+                publisher_channel.queue_declare(queue='link_pagamento')
+                publisher_channel.queue_declare(queue='status_pagamento')
+            
+            body = json.dumps(message_dict).encode()
+            publisher_channel.basic_publish(exchange='', routing_key=routing_key, body=body)
+            return True
+        except Exception as e:
+            print(f"[ms_pagamento] Error publishing: {e}")
+            publisher_connection = None
+            publisher_channel = None
+            return False
+
+def callback_leilao_vencedor(ch, method, properties, body):
+    print('[Pagamento] Recebido em leilao_vencedor:', body)
+    try:
+        dados = json.loads(body.decode())
+        leilao_id = dados['leilao_id']
+        id_vencedor = dados['id_vencedor']
+        valor = float(dados['valor'])
+
         payload = {
             'leilao_id': leilao_id,
             'cliente_id': id_vencedor,
             'valor': valor,
             'moeda': 'BRL'
         }
-        
+
+        print(f"[Pagamento] Fazendo requisição externa simulada para leilão {leilao_id}...")
+
         url_externo = 'http://localhost:5001/api/pagamento'
         link_pagamento = None
         id_transacao = None
-        
         try:
             resp = requests.post(url_externo, json=payload, timeout=5)
             resp.raise_for_status()
@@ -47,130 +61,92 @@ class PagamentoServicer(generated.pagamento_pb2_grpc.PagamentoServiceServicer):
             print(f"[Pagamento] Resposta externa: {retorno}")
         except Exception as e:
             print(f"[Pagamento] Falha na chamada externa, usando fallback: {e}")
-        
-        # Fallback se serviço externo falhar
+
         if not link_pagamento:
             id_transacao = id_transacao or f"tx-{leilao_id}-{int(time.time())}"
             link_pagamento = f"http://pagamento/{id_transacao}"
-            print('[Pagamento] Link de pagamento gerado via fallback.')
-        
-        # Notificar cliente sobre link de pagamento
-        notificar_link_pagamento(leilao_id, id_vencedor, id_transacao, link_pagamento, valor)
-        
-        # Notificar cliente sobre status inicial
-        notificar_status_pagamento(leilao_id, id_vencedor, id_transacao, 'pendente', valor)
-        
-        return generated.pagamento_pb2.NotificarVencedorResponse(success=True)
-    
-    def ProcessarPagamento(self, request, context):
-        """Processar pagamento (webhook ou chamada direta)"""
-        leilao_id = request.leilao_id
-        cliente_id = request.cliente_id
-        valor = request.valor
-        moeda = request.moeda or 'BRL'
-        
-        # Gerar transação
-        id_transacao = f"tx-{leilao_id}-{int(time.time())}"
-        link_pagamento = f"http://pagamento/{id_transacao}"
-        
-        # Notificar cliente
-        notificar_link_pagamento(leilao_id, cliente_id, id_transacao, link_pagamento, valor)
-        
-        return generated.pagamento_pb2.ProcessarPagamentoResponse(
-            success=True,
-            message='Pagamento iniciado',
-            id_transacao=id_transacao,
-            link_pagamento=link_pagamento
-        )
-    
-    def StreamPagamentos(self, request, context):
-        """Stream de notificações de pagamento para um cliente"""
-        cliente_id = request.cliente_id
-        print(f"[Pagamento] Cliente {cliente_id} conectado ao stream de pagamentos")
-        
-        import queue
-        notification_queue = queue.Queue()
-        
-        with lock:
-            if cliente_id not in streams_ativos:
-                streams_ativos[cliente_id] = []
-            streams_ativos[cliente_id].append(notification_queue)
-        
-        try:
-            while context.is_active():
-                try:
-                    notificacao = notification_queue.get(timeout=1.0)
-                    yield notificacao
-                except:
-                    pass
-        finally:
-            with lock:
-                if cliente_id in streams_ativos:
-                    streams_ativos[cliente_id].remove(notification_queue)
-                    if len(streams_ativos[cliente_id]) == 0:
-                        del streams_ativos[cliente_id]
-            print(f"[Pagamento] Cliente {cliente_id} desconectado do stream")
+            print('[Pagamento] Link de pagamento gerado.')
 
+        msg_link = {
+            'leilao_id': leilao_id,
+            'cliente_id': id_vencedor,
+            'valor': valor,
+            'moeda': 'BRL',
+            'id_transacao': id_transacao,
+            'link_pagamento': link_pagamento
+        }
+        publish_message('link_pagamento', msg_link)
 
-def notificar_link_pagamento(leilao_id, cliente_id, id_transacao, link_pagamento, valor):
-    """Notificar cliente sobre link de pagamento"""
-    notificacao = generated.pagamento_pb2.NotificacaoPagamento(
-        tipo='link_pagamento',
-        leilao_id=leilao_id,
-        cliente_id=cliente_id,
-        id_transacao=id_transacao,
-        link_pagamento=link_pagamento,
-        valor=valor
-    )
-    
-    with lock:
-        if cliente_id in streams_ativos:
-            for queue in streams_ativos[cliente_id]:
-                try:
-                    queue.put_nowait(notificacao)
-                except:
-                    pass
-    
-    print(f"[Pagamento] Link enviado ao cliente {cliente_id}: {link_pagamento}")
+        msg_status = {
+            'leilao_id': leilao_id,
+            'id_transacao': id_transacao,
+            'status': 'pendente'
+        }
+        publish_message('status_pagamento', msg_status)
 
+        print(f"[Pagamento] Publicado link_pagamento e status_pagamento inicial para leilão {leilao_id}.")
+    except Exception as e:
+        print(f"[Pagamento] Erro ao processar mensagem: {e}")
 
-def notificar_status_pagamento(leilao_id, cliente_id, id_transacao, status, valor):
-    """Notificar cliente sobre status do pagamento"""
-    notificacao = generated.pagamento_pb2.NotificacaoPagamento(
-        tipo='status_pagamento',
-        leilao_id=leilao_id,
-        cliente_id=cliente_id,
-        id_transacao=id_transacao,
-        status=status,
-        valor=valor
-    )
+def iniciar_consumidor():
+    global consumer_connection, consumer_channel
+    consumer_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+    consumer_channel = consumer_connection.channel()
     
-    with lock:
-        if cliente_id in streams_ativos:
-            for queue in streams_ativos[cliente_id]:
-                try:
-                    queue.put_nowait(notificacao)
-                except:
-                    pass
-    
-    print(f"[Pagamento] Status enviado ao cliente {cliente_id}: {status}")
+    consumer_channel.exchange_declare(exchange='leilao_vencedor', exchange_type='fanout')
+    result = consumer_channel.queue_declare(queue='', exclusive=True)
+    queue_name = result.method.queue
+    consumer_channel.queue_bind(exchange='leilao_vencedor', queue=queue_name)
+    consumer_channel.basic_consume(queue=queue_name, on_message_callback=callback_leilao_vencedor, auto_ack=True)
+    print("[Pagamento] Consumindo leilao_vencedor.")
+    consumer_channel.start_consuming()
 
+app = Flask(__name__)
 
-def serve():
-    """Iniciar servidor gRPC"""
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    generated.pagamento_pb2_grpc.add_PagamentoServiceServicer_to_server(PagamentoServicer(), server)
-    server.add_insecure_port('0.0.0.0:50053')
-    server.start()
-    print("[ms_pagamento] Servidor gRPC iniciado na porta 50053")
-    
+@app.post('/webhook/pagamento')
+def webhook_pagamento():
     try:
-        server.wait_for_termination()
-    except KeyboardInterrupt:
-        print("[ms_pagamento] Servidor encerrado")
-        server.stop(0)
+        body = request.get_json(force=True, silent=False)
+        if not isinstance(body, dict):
+            return jsonify({'error': 'JSON inválido'}), 400
 
+        id_transacao = body.get('id_transacao')
+        leilao_id = body.get('leilao_id')
+        status = body.get('status')
+
+        if not id_transacao or leilao_id is None:
+            return jsonify({'error': 'id_transacao e leilao_id são obrigatórios'}), 400
+        if status not in ('aprovada', 'recusada', 'pendente'):
+            return jsonify({'error': 'status inválido'}), 400
+
+        msg_status = {
+            'leilao_id': leilao_id,
+            'id_transacao': id_transacao,
+            'status': status
+        }
+        publish_message('status_pagamento', msg_status)
+        print(f"[Pagamento] Webhook publicou status_pagamento: {msg_status}")
+        return jsonify({'ok': True}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.get('/healthz')
+def healthz():
+    return jsonify({'status': 'ok'})
 
 if __name__ == '__main__':
-    print("[ms_pagamento] Iniciando servidor gRPC...")
-    serve()
+    t = threading.Thread(target=iniciar_consumidor, daemon=True)
+    t.start()
+    time.sleep(1)
+    
+    try:
+        publisher_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+        publisher_channel = publisher_connection.channel()
+        publisher_channel.queue_declare(queue='link_pagamento')
+        publisher_channel.queue_declare(queue='status_pagamento')
+        print("[ms_pagamento] Publisher connection initialized")
+    except Exception as e:
+        print(f"[ms_pagamento] Failed to initialize publisher: {e}")
+    
+    print('[Pagamento] Servindo webhook em http://127.0.0.1:4446')
+    app.run(host='127.0.0.1', port=4446, debug=False, use_reloader=False)

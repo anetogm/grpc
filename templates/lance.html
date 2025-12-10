@@ -16,14 +16,47 @@
     <p id="resultado"></p>
     <a href="/">Voltar à Página Inicial</a>
 
-    <p id="resultado"></p>
-    <a href="/">Voltar à Página Inicial</a>
+    <script>
+      let baseUrl = "http://localhost:4444/";
 
-    <!-- Dependências externas para gRPC-Web (carregar antes do bundle) -->
-    <script src="https://unpkg.com/google-protobuf@3.21.2/google-protobuf.js"></script>
-    <script src="https://unpkg.com/grpc-web@1.5.0/dist/grpc-web.min.js"></script>
-    <!-- Bundle único do cliente gRPC-Web e app -->
-    <script src="/static/grpc_client.bundle.js"></script>
-    <script src="/static/lance.js"></script>
+      function getUserIdFromSessionStorage() {
+        let userId = sessionStorage.getItem("userId");
+        if (!userId) {
+          userId = crypto.randomUUID();
+          sessionStorage.setItem("userId", userId);
+        }
+        return userId;
+      }
+
+      async function fazerLance() {
+        const leilaoId = document.getElementById("leilaoId").value;
+        const valorLance = document.getElementById("valorLance").value;
+        const userId = getUserIdFromSessionStorage();
+
+        if (!leilaoId || !valorLance) {
+          document.getElementById("resultado").textContent =
+            "Preencha todos os campos.";
+          return;
+        }
+
+        try {
+          const res = await fetch(baseUrl + "lance", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              leilao_id: leilaoId,
+              user_id: userId,
+              valor: parseFloat(valorLance),
+            }),
+          });
+          const result = await res.json();
+          document.getElementById("resultado").textContent =
+            result.message || "Lance enviado!";
+        } catch (e) {
+          document.getElementById("resultado").textContent =
+            "Erro ao fazer lance: " + e.message;
+        }
+      }
+    </script>
   </body>
 </html>
