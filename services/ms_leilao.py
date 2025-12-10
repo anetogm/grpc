@@ -1,8 +1,12 @@
-import pika
+import grpc
+from concurrent import futures
 import time
 from datetime import datetime, timedelta
 import threading
 from flask import Flask, jsonify, request
+import generated.leilao_pb2_grpc as leilao_pb2_grpc
+import generated.leilao_pb2 as leilao_pb2
+
 
 inicio = datetime.now() + timedelta(seconds=2)
 fim = inicio + timedelta(minutes=2)
@@ -155,13 +159,16 @@ def cadastra():
 leiloes_ativos = {}
 lances_atuais = {}
 
+def criar_request_leilao():
+	request = leilao_pb2.ListarLeiloesRequest()
+	return request
+
 @app.get("/leiloes")
 def get_ativos():
-	with lock:
-		snapshot = leiloes
-	ativos = esta_ativo(snapshot)
-	ativos = converte_datetime(ativos)
-	return jsonify(ativos)
+	channel = grpc.insecure_channel('localhost:50051')
+	stub = leilao_pb2_grpc.LeilaoServiceStub(channel)
+	leiloes = stub.ListarLeiloes(criar_request_leilao())
+	return leiloes.json()
 
 def esta_ativo(leiloes):
     agora = datetime.now()
@@ -184,15 +191,24 @@ def esta_ativo(leiloes):
     return ativos
 
 if __name__ == "__main__":
-	print("[MS Leilao] Gerenciando leilões...")
-	
-	start()
-	time.sleep(0.5)
-	
-	with lock:
-		for i, l in enumerate(leiloes):
-			l['id'] = i + 1
+	def serve():
+		"""Iniciar servidor gRPC"""
+		server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+		leilao_pb2_grpc.add_LeilaoServiceServicer_to_server(leilao_pb2_grpc.LeilaoServiceServicer(), server)
+		server.add_insecure_port('0.0.0.0:50051')
+		server.start()
+		print("[ms_leilao] Servidor gRPC iniciado na porta 50051")
 
-	threading.Thread(target=main, daemon=True).start()
+		##Iniciar gerenciamento dos leilões existentes
+		for leilao in leiloes:
+			t = threading.Thread(target=gerenciar_leilao, args=(leilao,), daemon=True)
+			t.start()
+
+		try:
+			server.wait_for_termination()
+		except KeyboardInterrupt:
+			print("[ms_leilao] Servidor encerrado")
+			server.stop(0)
+	threading.Thread(target=serve,daemon=True).start()
 	app.run(host="127.0.0.1", port=4447, debug=False, use_reloader=False)
  
