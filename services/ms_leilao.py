@@ -8,8 +8,9 @@ import generated.leilao_pb2_grpc as leilao_pb2_grpc
 import generated.leilao_pb2 as leilao_pb2
 
 
-inicio = datetime.now() + timedelta(seconds=2)
-fim = inicio + timedelta(minutes=2)
+inicio = (datetime.now() + timedelta(seconds=2))
+inicio_novo = inicio.isoformat()
+fim = (inicio + timedelta(minutes=2)).isoformat()
 
 leiloes = [
 	{
@@ -17,7 +18,7 @@ leiloes = [
 		'nome': 'Notebook',
 		'descricao': 'Macbook Pro 16" M2 Max assinado pelo Steve Jobs',
 		'valor_inicial': 1000,
-		'inicio': inicio,
+		'inicio': inicio_novo,
 		'fim': fim,
 		'status': 'ativo'
 	},
@@ -26,7 +27,7 @@ leiloes = [
 		'nome':'celular',
 		'descricao': 'Iphone 17 Pro Max Turbo assinado pelo Steve Jobs',
 		'valor_inicial': 2000,
-		'inicio': inicio,
+		'inicio': inicio_novo,
         'fim': fim,
 		'status': 'ativo'
 	}
@@ -40,19 +41,55 @@ lock = threading.Lock()
 
 app = Flask(__name__)
 
-def start():
-	try:
-		connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-		channel = connection.channel()
+class LeilaoServiceImpl(leilao_pb2_grpc.LeilaoServiceServicer):
+	"""Concrete implementation of the Leilao service"""
+	
+	def ListarLeiloes(self, request, context):
+		response = leilao_pb2.ListarLeiloesResponse()
+		for leilao in leiloes:
+			item = response.leiloes.add()
+			item.id = leilao['id']
+			item.nome = leilao['nome']
+			item.descricao = leilao['descricao']
+			item.valor_inicial = leilao['valor_inicial']
+			item.inicio = leilao['inicio']
+			item.fim = leilao['fim']
+			item.status = leilao['status']
+		return response
+	
+	def CriarLeilao(self, request, context):
+		try:
+			pedido = {
+				'id': (len(leiloes) + 1),
+				'nome':request.nome,
+				'descricao': request.descricao,
+				'valor_inicial': request.valor_inicial,
+				'inicio': request.inicio,
+				'fim': request.fim,
+				'status': 'ativo'
+			}
+			leiloes.append(pedido)
+			return leilao_pb2.CriarLeilaoResponse(success=True, leilao_id=pedido['id'])
+		except Exception as e:
+			print(f"Ta chegando aqui: {e}")
+			return leilao_pb2.CriarLeilaoResponse(success=False, leilao_id=-1)
 
-		channel.queue_declare(queue='leilao_iniciado')
-		channel.queue_declare(queue='leilao_finalizado')
-		
-		connection.close()
-		print("[ms_leilao] RabbitMQ queues declared")
+	def RegistrarInteresse(self, request, context):
+		return leilao_pb2.RegistrarInteresseResponse(
+			success=False,
+			message="Not implemented"
+		)
 
-	except Exception as e:
-		print(f"[ms_leilao] RabbitMQ: {e}")
+	def CancelarInteresse(self, request, context):
+		return leilao_pb2.CancelarInteresseResponse(
+			success=False,
+			message="Not implemented"
+		)
+
+	def StreamNotificacoes(self, request, context):
+		# stream vazio
+		for _ in []:
+			yield _
 
 def cria_leilao():
 	try:
@@ -194,7 +231,7 @@ if __name__ == "__main__":
 	def serve():
 		"""Iniciar servidor gRPC"""
 		server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-		leilao_pb2_grpc.add_LeilaoServiceServicer_to_server(leilao_pb2_grpc.LeilaoServiceServicer(), server)
+		leilao_pb2_grpc.add_LeilaoServiceServicer_to_server(LeilaoServiceImpl(), server)
 		server.add_insecure_port('0.0.0.0:50051')
 		server.start()
 		print("[ms_leilao] Servidor gRPC iniciado na porta 50051")

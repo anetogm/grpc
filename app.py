@@ -1,13 +1,16 @@
 from flask import Flask, jsonify, render_template, request, redirect
 from flask_cors import CORS
 from flask_sse import sse
+import grpc
+from google.protobuf.json_format import MessageToDict
+from flask import jsonify
 import requests
 import secrets
 import threading
-import pika
 import json
 import time
 import redis
+from services.generated import leilao_pb2_grpc, leilao_pb2
 
 lock = threading.Lock()
 rabbitmq_lock = threading.Lock()
@@ -24,6 +27,10 @@ redis_client = redis.from_url(app.config["REDIS_URL"])
 
 url_mslance = 'http://localhost:4445'
 url_msleilao = 'http://localhost:4447'
+
+
+
+
 
 def callback_lance_validado(ch, method, properties, body):
     print('[App] Recebido em lance_validado:', body)
@@ -118,25 +125,7 @@ def callback_status_pagamento(ch, method, properties, body):
     except Exception as e:
         print(f'Erro ao processar status_pagamento: {e}')
 
-def start_consumer():
-    global channel
-    connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-    channel = connection.channel()
 
-    channel.basic_consume(queue='lance_validado', on_message_callback=callback_lance_validado, auto_ack=True)
-    channel.basic_consume(queue='lance_invalidado', on_message_callback=callback_lance_invalidado, auto_ack=True)
-
-    channel.exchange_declare(exchange='leilao_vencedor', exchange_type='fanout')
-    result = channel.queue_declare(queue='', exclusive=True)
-    queue_name = result.method.queue
-    channel.queue_bind(exchange='leilao_vencedor', queue=queue_name)
-    channel.basic_consume(queue=queue_name, on_message_callback=callback_leilao_vencedor, auto_ack=True)
-    
-    channel.basic_consume(queue='link_pagamento', on_message_callback=callback_link_pagamento, auto_ack=True)
-    channel.basic_consume(queue='status_pagamento', on_message_callback=callback_status_pagamento, auto_ack=True)
-
-    print(' [*] Consumer started. Waiting messages.')
-    channel.start_consuming()
 
 @app.get("/")
 def index():
@@ -148,8 +137,12 @@ def pagamento_page():
 
 @app.get("/leiloes")
 def get_leiloes():
-    leiloes = requests.get(url_msleilao + "/leiloes")
-    return jsonify(leiloes.json())
+    channel = grpc.insecure_channel('localhost:50051')
+    stub = leilao_pb2_grpc.LeilaoServiceStub(channel)
+    leiloes = stub.ListarLeiloes(leilao_pb2.ListarLeiloesRequest())
+    resposta_dict = MessageToDict(leiloes, preserving_proto_field_name=True)
+    print(jsonify(resposta_dict))
+    return jsonify(resposta_dict)
 
 @app.get("/cadastra_leilao")
 def cadastra_leilao_page():
@@ -170,13 +163,21 @@ def cadastra_leilao():
         if not item:
             return jsonify({'error': 'item é obrigatório'}), 400
 
-        next_id = str(max(int(l['id']) for l in leiloes) + 1) if leiloes else '1'
-        novo = {'id': next_id, 'item': item, 'descricao': descricao, 'valor_inicial': valor_inicial, 'inicio': inicio, 'fim': fim}
+        novo = {'item': item, 'descricao': descricao, 'valor_inicial': valor_inicial, 'inicio': inicio, 'fim': fim}
 
-        resp = requests.post(url_msleilao + "/cadastra_leilao", json=novo, timeout=3)
-        resp.raise_for_status()
+        channel = grpc.insecure_channel('localhost:50051')
+        stub = leilao_pb2_grpc.LeilaoServiceStub(channel)
 
-        leiloes.append(novo)
+        novo_leilao = leilao_pb2.CriarLeilaoRequest()
+        novo_leilao.nome = novo['item']
+        novo_leilao.descricao = novo['descricao']
+        novo_leilao.valor_inicial = int(novo['valor_inicial'])
+        novo_leilao.inicio = novo['inicio']
+        novo_leilao.fim = novo['fim']
+
+        leiloes = stub.CriarLeilao(novo_leilao)
+        resposta_dict = MessageToDict(leiloes, preserving_proto_field_name=True)
+        print(resposta_dict)
         return redirect("/cadastra_leilao?success=1")
 
 @app.post("/lance")
@@ -227,8 +228,5 @@ def cancelar_interesse():
     return jsonify({'message': 'Interesse cancelado com sucesso'})
 
 if __name__ == "__main__":
-    t = threading.Thread(target=start_consumer, daemon=True)
-    t.start()
-    time.sleep(1)
     
     app.run(host="127.0.0.1", port=4444, debug=False, use_reloader=False)

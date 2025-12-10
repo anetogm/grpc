@@ -34,26 +34,6 @@ message ListarLeiloesResponse {
     repeated Leilao leiloes = 1;
 }
 
-message RegistrarInteresseRequest {
-    int32 leilao_id = 1;
-    string cliente_id = 2;
-}
-
-message RegistrarInteresseResponse {
-    bool success = 1;
-    string message = 2;
-}
-
-message CancelarInteresseRequest {
-    int32 leilao_id = 1;
-    string cliente_id = 2;
-}
-
-message CancelarInteresseResponse {
-    bool success = 1;
-    string message = 2;
-}
-
 // Notificações em tempo real
 message NotificacaoLeilao {
     string tipo = 1; // "leilao_iniciado", "leilao_finalizado"
@@ -69,7 +49,5 @@ message StreamNotificacoesRequest {
 service LeilaoService {
     rpc CriarLeilao(CriarLeilaoRequest) returns (CriarLeilaoResponse);
     rpc ListarLeiloes(ListarLeiloesRequest) returns (ListarLeiloesResponse);
-    rpc RegistrarInteresse(RegistrarInteresseRequest) returns (RegistrarInteresseResponse);
-    rpc CancelarInteresse(CancelarInteresseRequest) returns (CancelarInteresseResponse);
     rpc StreamNotificacoes(StreamNotificacoesRequest) returns (stream NotificacaoLeilao);
 }
