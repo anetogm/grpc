@@ -1,6 +1,7 @@
 from datetime import datetime
 from flask import Flask ,jsonify, request
-import pika
+import grpc
+from concurrent import futures
 import json
 import os
 import threading
@@ -11,136 +12,167 @@ app = Flask(__name__)
 leiloes_ativos = {}
 lances_atuais = {}
 
+LEILAO_INATIVO = 1
+LANCE_INFERIOR = 2
+LANCE_VALIDADO = 3
+
 consumer_channel = None
 publisher_connection = None
 publisher_channel = None
 publisher_lock = threading.Lock()
+import generated.lance_pb2_grpc as lance_pb2_grpc
+import generated.lance_pb2 as lance_pb2
 
-def _parse_leilao_body(body: bytes):
-    s = body.decode(errors='ignore').strip()
-    parts = s.split(',')
-    if len(parts) == 1:
-        return {"id": parts[0].strip()}
-    else:
-        return {"id": parts[0].strip(),
-                "item": parts[1].strip() if len(parts) > 1 else None,
-                "descricao": parts[2].strip() if len(parts) > 2 else None,
-                "valor_inicial": float(parts[3].strip()) if len(parts) > 3 else None,
-                "inicio": parts[4].strip() if len(parts) > 4 else None,
-                "fim": parts[5].strip() if len(parts) > 5 else None
+class LanceServiceImpl(lance_pb2_grpc.LanceServiceServicer):
+	"""Concrete implementation of the Leilao service"""
+	def EnviarLance(self, request, context):
+		
+		novo_lance = lance_pb2.Lance()
+		novo_lance.leilao_id = request.leilao_id
+		novo_lance.user_id = request.user_id
+		novo_lance.valor = request.valor
+		novo_lance.timestamp = (datetime.now()).isoformat()
+
+		result = verifica_lance(novo_lance)
+		try:
+			if result == LANCE_VALIDADO:
+				lances_atuais[novo_lance.leilao_id] = {
+				'id_cliente': novo_lance.user_id,
+				'valor': novo_lance.valor,
+				'timestamp': novo_lance.timestamp
+				}
+				return lance_pb2.EnviarLanceResponse(success=1, message=f"Lance Validado no leilao {novo_lance.leilao_id}",valido=1)
+			elif result == LANCE_INFERIOR:
+				return lance_pb2.EnviarLanceResponse(success=0, message=f"Lance inferior que o atual no leilao {novo_lance.leilao_id}",valido=0)
+		except Exception as e:
+			print(f"Aqui chegou e deu esse erro {e}")
+			return lance_pb2.EnviarLanceResponse(success=0, message=f"Erro ao dar lance em leilao {novo_lance.leilao_id}",valido=0)
+		return lance_pb2.EnviarLanceResponse(success=0, message=f"Deu ruim geral {novo_lance.leilao_id}",valido=0)
+	
+	def StreamLances(self, request, context):
+		return super().StreamLances(request, context)
+	def IniciarLeilao(self, request, context):
+        try:
+            leilao = request.leilao
+            leilao_id = int(leilao.id)
+            with lock:
+                leiloes_ativos[leilao_id] = {
+                    'nome': getattr(leilao, 'nome', ''),
+                    'valor': getattr(leilao, 'valor_inicial', getattr(leilao, 'valor', 0)),
+                    'descricao': getattr(leilao, 'descricao', '')
                 }
+            print(f'[ms_lance] Leilão iniciado: {leilao_id} -> {leiloes_ativos[leilao_id]}')
+            return lance_pb2.IniciarLeilaoResponse(success=1)
+        except Exception as e:
+            print(f'[ms_lance] Erro em IniciarLeilao: {e}')
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return lance_pb2.IniciarLeilaoResponse(success=0)
+
+    def FinalizarLeilao(self, request, context):
+        try:
+            leilao_id = int(request.leilao_id)
+            with lock:
+                vencedor = lances_atuais.pop(leilao_id, None)
+                leiloes_ativos.pop(leilao_id, None)
+
+            if vencedor:
+                id_vencedor = vencedor.get('id_cliente', -1)
+                valor_vencedor = vencedor.get('valor', 0)
+            else:
+                id_vencedor = -1
+                valor_vencedor = 0
+
+            print(f'[ms_lance] Leilão finalizado: {leilao_id}, vencedor={id_vencedor}, valor={valor_vencedor}')
+            return lance_pb2.FinalizarLeilaoResponse(success=1, id_vencedor=id_vencedor, valor=valor_vencedor)
+        except Exception as e:
+            print(f'[ms_lance] Erro em FinalizarLeilao: {e}')
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return lance_pb2.FinalizarLeilaoResponse(success=0, id_vencedor=-1, valor=0)
+	if False:
+		def IniciarLeilao(self, request, context):
+			try:
+				leiloes_ativos[request.leilao.id] = {
+					'nome': request.leilao.nome,
+					'valor': request.leilao.valor_inicial,
+					'descricao':request.leilao.descricao
+				}
+				print(f'iniciou uns leiloes {leiloes_ativos}')
+				return lance_pb2.IniciarLeilaoResponse(success=1)
+			except:
+				return lance_pb2.IniciarLeilaoResponse(success=0)
+		
+		def FinalizarLeilao(self, request, context):
+			id = request.leilao_id
+			id_vencedor1 = lances_atuais[id]['id_cliente']
+			valor_vencedor = lances_atuais[id]['valor']
+			leiloes_ativos[id].pop()
+			return super().FinalizarLeilaoResponse(success=1,id_vencedor=id_vencedor1,valor=valor_vencedor)
+
 
 def callback_leilao_iniciado(ch, method, properties, body):
-    print("Recebido em leilao_iniciado:", body)
-    print(f"callback_leilao_iniciado PID={os.getpid()} thread={threading.current_thread().name}")
-    print(f"\nbody: {body}\n")
-    leilao = _parse_leilao_body(body)
-    leilao_id = int(leilao.get('id'))
-    
-    with lock:
-        leiloes_ativos[leilao_id] = leilao
-        snapshot = dict(leiloes_ativos)
-        print(f"Leilão adicionado aos ativos: {snapshot}")
+	return False
 
 def callback_leilao_finalizado(ch, method, properties, body):
-    print("Recebido em leilao_finalizado:", body)
-    leilao_id = int(body.decode().split(',')[0])
+	print("Recebido em leilao_finalizado:", body)
+	leilao_id = int(body.decode().split(',')[0])
 
-    with lock:
-        leiloes_ativos.pop(leilao_id, None)
-        vencedor = lances_atuais.pop(leilao_id, None)
+	with lock:
+		leiloes_ativos.pop(leilao_id, None)
+		vencedor = lances_atuais.pop(leilao_id, None)
 
-    if vencedor:
-        msg_vencedor = json.dumps({'leilao_id': leilao_id, 'id_vencedor': vencedor['id_cliente'], 'valor': vencedor['valor']})
-        publicar_fanout('leilao_vencedor', msg_vencedor)
-        print(f"Vencedor publicado: {msg_vencedor}")
+	if vencedor:
+		msg_vencedor = json.dumps({'leilao_id': leilao_id, 'id_vencedor': vencedor['id_cliente'], 'valor': vencedor['valor']})
+		publicar_vencedor('leilao_vencedor', msg_vencedor)
+		print(f"Vencedor publicado: {msg_vencedor}")
 
-def start_consumer():
-    global consumer_channel
-    connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-    consumer_channel = connection.channel()
-    consumer_channel.queue_declare(queue='leilao_iniciado')
-    consumer_channel.queue_declare(queue='leilao_finalizado')
-    consumer_channel.queue_declare(queue='lance_validado')
-    consumer_channel.queue_declare(queue='lance_invalidado')
-    
-    consumer_channel.basic_consume(queue='leilao_iniciado', on_message_callback=callback_leilao_iniciado, auto_ack=True)
-    consumer_channel.basic_consume(queue='leilao_finalizado', on_message_callback=callback_leilao_finalizado, auto_ack=True)
-    print(' [*] Consumer started. Waiting messages.')
-    consumer_channel.start_consuming()
 
 def publish_message(routing_key, message):
-    global publisher_connection, publisher_channel
-    
-    with publisher_lock:
-        try:
-            if publisher_connection is None or publisher_connection.is_closed:
-                publisher_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-                publisher_channel = publisher_connection.channel()
-                publisher_channel.queue_declare(queue='lance_validado')
-                publisher_channel.queue_declare(queue='lance_invalidado')
-            
-            publisher_channel.basic_publish(exchange='', routing_key=routing_key, body=message)
-            return True
-        except Exception as e:
-            print(f"[ms_lance] Error publishing: {e}")
-            publisher_connection = None
-            publisher_channel = None
-            return False
+	return False
 
-def publicar_fanout(exchange, message):
-    global publisher_connection, publisher_channel
-    
-    with publisher_lock:
-        try:
-            if publisher_connection is None or publisher_connection.is_closed:
-                publisher_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-                publisher_channel = publisher_connection.channel()
-                publisher_channel.exchange_declare(exchange='leilao_vencedor', exchange_type='fanout')
-            result = publisher_channel.queue_declare(queue='', exclusive=True)
-            queue_name = result.method.queue
-            publisher_channel.queue_bind(exchange='leilao_vencedor', queue=queue_name)
-            
-            publisher_channel.basic_publish(exchange=exchange, routing_key='', body=message)
-            return True
-        except Exception as e:
-            print(f"[ms_lance] Error publishing to fanout: {e}")
-            publisher_connection = None
-            publisher_channel = None
-            return False                            
+def publicar_vencedor(exchange, message):
+	return False                           
 
-@app.post("/lance")
-def receber_lance():
-    data = request.get_json()
-    leilao_id = int(data.get('leilao_id'))
-    user_id = data.get('user_id')
-    valor = float(data.get('valor'))
+def verifica_lance(a: lance_pb2.Lance):
+    # Check if auction exists and is active
+    if a.leilao_id not in leiloes_ativos:
+        return LEILAO_INATIVO
     
-    msg = json.dumps({'leilao_id': leilao_id, 'user_id': user_id, 'valor': valor})
+    # Check if this is the first bid or if it's higher than current bid
+    if a.leilao_id not in lances_atuais:
+        return LANCE_VALIDADO  # First bid on this auction
     
-    with lock:
-        if (leilao_id not in leiloes_ativos.keys()):
-            publish_message('lance_invalidado', msg)
-            print("To publicando aqui")
-            return jsonify({'error': 'Leilão não ativo'}), 400
-        
-        lance_atual = lances_atuais.get(leilao_id)
-        if lance_atual and valor <= lance_atual['valor']:
-            print("To publicando lá")
-            publish_message('lance_invalidado', msg)
-            return jsonify({'error': 'Lance deve ser maior que o atual'}), 400
-        
-        lances_atuais[leilao_id] = {'id_cliente': user_id, 'valor': valor}
+    # Check if new bid is higher than current bid
+    if leiloes_ativos[a.leilao_id]['valor'] > a.valor:
+        return LANCE_INFERIOR
     
-    publish_message('lance_validado', msg)
-    return jsonify({'message': 'Lance validado'})
+    return LANCE_VALIDADO
+	
 
+@app.get("/debug/leiloes")
+def debug_leiloes():
+    return jsonify({
+        'leiloes_ativos': list(leiloes_ativos.keys()),
+        'lances_atuais': list(lances_atuais.keys())
+    })
+
+def serve():
+		"""Iniciar servidor gRPC"""
+		server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+		lance_pb2_grpc.add_LanceServiceServicer_to_server(LanceServiceImpl(), server)
+		server.add_insecure_port('0.0.0.0:50052')
+		server.start()
+		print("[ms_lance] Servidor gRPC iniciado na porta 50052")
+
+		try:
+			server.wait_for_termination()
+		except KeyboardInterrupt:
+			print("[ms_lance] Servidor encerrado")
+			server.stop(0)
 
 if __name__ == "__main__":
-    import time
-    
-    t = threading.Thread(target=start_consumer, daemon=True)
-    t.start()
-    time.sleep(1)
-
-    app.run(host="127.0.0.1", port=4445, debug=False, use_reloader=False)
+	import time
+	time.sleep(1)
+	threading.Thread(target=serve,daemon=True).start()
+	app.run(host="127.0.0.1", port=4445, debug=False, use_reloader=False)
