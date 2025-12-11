@@ -11,6 +11,7 @@ import json
 import time
 import redis
 from services.generated import leilao_pb2_grpc, leilao_pb2
+from services.generated import lance_pb2_grpc, lance_pb2
 
 # TODO refazer a logica do sse agora que tamo usando grpc no lugar do rabbitmq
 
@@ -93,10 +94,20 @@ def lance():
     if not leilao_id or not user_id or not valor:
         return jsonify({"error": "Dados incompletos"}), 400
 
-    resp = requests.post(url_mslance + "/lance", json=data)
-    if resp.status_code not in range(200, 300):
-        return jsonify({"error": "Erro ao enviar lance"}), 500
-    return jsonify({"message": "Lance enviado com sucesso"})
+    #aqui jás um post para /lance no ms_lance agora vou meter o gRPCzão aqui
+    channel = grpc.insecure_channel('localhost:50052')
+    stub = lance_pb2_grpc.LanceServiceStub(channel)
+    
+    novo_lance = lance_pb2.EnviarLanceRequest()
+    novo_lance.user_id = user_id
+    novo_lance.leilao_id = int(leilao_id)
+    novo_lance.valor = valor
+
+    resultado = stub.EnviarLance(novo_lance)
+    resultado_dic = MessageToDict(resultado, preserving_proto_field_name=True)
+    print(resultado_dic)
+    
+    return jsonify(resultado_dic)
 
 
 @app.post("/registrar_interesse")
