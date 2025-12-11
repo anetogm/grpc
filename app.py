@@ -30,112 +30,13 @@ redis_client = redis.from_url(app.config["REDIS_URL"])
 url_mslance = 'http://localhost:4445'
 url_msleilao = 'http://localhost:4447'
 
-
-
-
-
-def callback_lance_validado(ch, method, properties, body):
-    print('[App] Recebido em lance_validado:', body)
-    try:
-        data = json.loads(body.decode())
-        print(data)
-        leilao_id = data.get('leilao_id')
-        cliente_id = data.get('user_id')
-        valor = data.get('valor')
-        with lock:
-            with app.app_context():
-
-                interessados = redis_client.smembers(f'interesses:{leilao_id}')
-                for cid in interessados:
-                    cid_str = cid.decode('utf-8')
-                    sse.publish({
-                        'tipo': 'novo_lance_valido',
-                        'leilao_id': leilao_id,
-                        'valor': valor,
-                        'cliente_id_lance': cliente_id
-                    }, channel=cid_str)
-    except Exception as e:
-        print(f'Erro ao processar lance_validado: {e}')
-
-def callback_lance_invalidado(ch, method, properties, body):
-    print('[App] Recebido em lance_invalidado:', body)
-    try:
-        data = json.loads(body.decode())
-        cliente_id = data.get('user_id')
-        
-        with app.app_context():
-            sse.publish({
-                'tipo': 'lance_invalido',
-                'leilao_id': data.get('leilao_id'),
-                'valor': data.get('valor')
-            }, channel=cliente_id)
-    except Exception as e:
-        print(f'Erro ao processar lance_invalidado: {e}')
-
-def callback_leilao_vencedor(ch, method, properties, body):
-    print('[App] Recebido em leilao_vencedor:', body)
-    try:
-        data = json.loads(body.decode())
-        leilao_id = data.get('leilao_id')
-        id_vencedor = data.get('id_vencedor', 'user_id')
-        valor = data.get('valor')
-        print(f"Isso é o ganhador {id_vencedor} && {valor}")
-        
-        with lock:
-            interessados = redis_client.smembers(f'interesses:{leilao_id}')
-            
-        with app.app_context():
-            for cid in interessados:
-                cid_str = cid.decode('utf-8')
-                sse.publish({
-                    'tipo': 'vencedor_leilao',
-                    'leilao_id': leilao_id,
-                    'id_vencedor': id_vencedor,
-                    'valor': valor
-                }, channel=cid_str)
-    except Exception as e:
-        print(f'Erro ao processar leilao_vencedor: {e}')
-
-def callback_link_pagamento(ch, method, properties, body):
-    print('[App] Recebido em link_pagamento:', body)
-    try:
-        data = json.loads(body.decode())
-        cliente_id = data.get('cliente_id')  
-        link_pagamento = data.get('link_pagamento')
-        
-        with app.app_context():
-            sse.publish({
-                'tipo': 'link_pagamento',
-                'link_pagamento': link_pagamento
-            }, channel=cliente_id)
-    except Exception as e:
-        print(f'Erro ao processar link_pagamento: {e}')
-
-def callback_status_pagamento(ch, method, properties, body):
-    print('[App] Recebido em status_pagamento:', body)
-    try:
-        data = json.loads(body.decode())
-        cliente_id = data.get('cliente_id')
-        status = data.get('status')
-        print(f"Status do pagamento: {type(status)}")
-        
-        with app.app_context():
-            sse.publish({
-                'tipo': 'status_pagamento',
-                'status': status
-            }, channel=cliente_id)
-    except Exception as e:
-        print(f'Erro ao processar status_pagamento: {e}')
-
-
-
 @app.get("/")
 def index():
     return render_template("index.html")
 
 @app.get("/pagamento")
 def pagamento_page():
-    return render_template("pagamento.html")
+    return render_template("pagar.html")
 
 @app.get("/leiloes")
 def get_leiloes():
@@ -230,5 +131,4 @@ def cancelar_interesse():
     return jsonify({'message': 'Interesse cancelado com sucesso'})
 
 if __name__ == "__main__":
-    
     app.run(host="127.0.0.1", port=4444, debug=False, use_reloader=False)
