@@ -13,6 +13,8 @@ import redis
 from services.generated import pagamento_pb2_grpc, pagamento_pb2
 from services.generated import leilao_pb2_grpc, leilao_pb2
 from services.generated import lance_pb2_grpc, lance_pb2
+from services.generated import api_pb2_grpc, api_pb2
+from concurrent import futures
 
 # TODO refazer a logica do sse agora que tamo usando grpc no lugar do rabbitmq
 
@@ -26,6 +28,11 @@ app.register_blueprint(sse, url_prefix='/stream')
 app.secret_key = secrets.token_hex(16)
 CORS(app)
 
+class ApiServiceImpl(api_pb2_grpc.ApiServiceServicer):
+    def NotificarVencedor_api(self,request,context):
+        notificar_vencedor(request)
+        return api_pb2.NotificarVencedorResponse_api(success=1)
+  
 leiloes = []
 redis_client = redis.from_url(app.config["REDIS_URL"])
 
@@ -155,12 +162,11 @@ def cancelar_interesse():
     
     return jsonify({'message': 'Interesse cancelado com sucesso'})
 
-@app.post("/notificar_vencedor")
-def notificar_vencedor():
-    data = request.get_json()
-    leilao_id = data.get('leilao_id')
-    id_vencedor = data.get('id_vencedor')
-    valor = data.get('valor')
+def notificar_vencedor(a: pagamento_pb2.NotificarVencedorRequest):
+    data = a
+    leilao_id = data.leilao_id
+    id_vencedor = data.id_vencedor
+    valor = data.valor
     
     print(f"Recebido vencedor do leilão {leilao_id}: {id_vencedor} com valor {valor}")
     
@@ -226,5 +232,14 @@ def notificar_vencedor():
     
     return jsonify({'message': 'Vencedor notificado com sucesso'})
 
+def serve():
+		"""Iniciar servidor gRPC"""
+		server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+		api_pb2_grpc.add_ApiServiceServicer_to_server(ApiServiceImpl(), server)
+		server.add_insecure_port('0.0.0.0:50054')
+		server.start()
+		print("[api_gateway] Servidor gRPC iniciado na porta 50054")
+          
 if __name__ == "__main__":
+    threading.Thread(target=serve,daemon=True).start()
     app.run(host="127.0.0.1", port=4444, debug=False, use_reloader=False)

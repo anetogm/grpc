@@ -17,7 +17,7 @@ from generated import pagamento_pb2_grpc, pagamento_pb2
 
 inicio = (datetime.now() + timedelta(seconds=2))
 inicio_novo = inicio.isoformat()
-fim = (inicio + timedelta(minutes=2)).isoformat()
+fim = (inicio + timedelta(minutes=1)).isoformat()
 
 leiloes = [
 	{
@@ -143,9 +143,14 @@ def gerenciar_leilao(leilao):
 			'valor': finalizado.valor
 		}
 		channel = grpc.insecure_channel('localhost:50053')
+		
 		stub2 = pagamento_pb2_grpc.PagamentoServiceStub(channel)
+		
 		print(f"Notificando gateway sobre vencedor: {payload}")
-		response = stub2.NotificarVencedor(pagamento_pb2.NotificarVencedorRequest(leilao_id=payload['leilao_id'],id_vencedor=payload['id_vencedor'],valor=payload['valor']))
+		try:
+			response = stub2.NotificarVencedor(pagamento_pb2.NotificarVencedorRequest(leilao_id=payload['leilao_id'],id_vencedor=payload['id_vencedor'],valor=payload['valor']))
+		except Exception as e:
+			print(f"Esse é o erro ao chamar Notificarvencedor (pagamento): {e}")
 		if response.success:
 			print('Vencedor notificado!')
 		else:

@@ -7,6 +7,8 @@ import requests
 from flask import Flask, request, jsonify
 import generated.pagamento_pb2_grpc as pagamento_pb2_grpc
 import generated.pagamento_pb2 as pagamento_pb2
+import generated.api_pb2 as api_pb2
+import generated.api_pb2_grpc as api_pb2_grpc
 
 subscribers = set()
 subs_lock = threading.Lock()
@@ -25,26 +27,11 @@ class PagamentoServiceImpl (pagamento_pb2_grpc.PagamentoServiceServicer):
         link_pagamento = data.get('link_pagamento')
         id_transacao = data.get('id_transacao')
 
-        publish_message('link_pagamento', {
-            'leilao_id': request.leilao_id,
-            'cliente_id': request.cliente_id,
-            'valor': request.valor,
-            'moeda': request.moeda or 'BRL',
-            'id_transacao': id_transacao,
-            'link_pagamento': link_pagamento
-        })
-        
-        publish_message('status_pagamento', {
-            'leilao_id': request.leilao_id,
-            'id_transacao': id_transacao,
-            'status': 'pendente'
-        })
-
         return pagamento_pb2.ProcessarPagamentoResponse(
-            success=True,
-            message='Pagamento iniciado',
-            id_transacao=id_transacao,
-            link_pagamento=link_pagamento
+        success=True,
+        message='Pagamento iniciado',
+        id_transacao=id_transacao,
+        link_pagamento=link_pagamento
         )
     
     def NotificarVencedor(self, request, context):
@@ -61,33 +48,15 @@ class PagamentoServiceImpl (pagamento_pb2_grpc.PagamentoServiceServicer):
         link_pagamento = data.get('link_pagamento')
         id_transacao = data.get('id_transacao')
 
-        publish_message('link_pagamento', {
-            'leilao_id': request.leilao_id,
-            'cliente_id': request.id_vencedor,
-            'valor': request.valor,
-            'moeda': 'BRL',
-            'id_transacao': id_transacao,
-            'link_pagamento': link_pagamento
-        })
-        
-        publish_message('status_pagamento', {
-            'leilao_id': request.leilao_id,
-            'id_transacao': id_transacao,
-            'status': 'pendente'
-        })
-        
-        return pagamento_pb2.NotificarVencedorResponse(success=True)
+       #chamar metodo api_gatewaty
+        channel = grpc.insecure_channel('localhost:50054')
+        stub3 = api_pb2_grpc.ApiServiceStub(channel)
+        response = stub3.NotificarVencedor_api(api_pb2.NotificarVencedorRequest_api(leilao_id=payload['leilao_id'],id_vencedor=payload['cliente_id'],valor=payload['valor']))
+        if(response.success):
+            return pagamento_pb2.NotificarVencedorResponse(success=True)
+        else:
+            return pagamento_pb2.NotificarVencedorResponse(success=False)
 
-def publish_message(event_type, message_dict):
-    notif = pagamento_pb2.NotificacaoPagamento(
-        tipo=event_type,
-        leilao_id=int(message_dict.get('leilao_id', 0) or 0),
-        cliente_id=message_dict.get('cliente_id') or None,
-        id_transacao=message_dict.get('id_transacao') or None,
-        link_pagamento=message_dict.get('link_pagamento') or None,
-        status=message_dict.get('status') or None,
-        valor=float(message_dict.get('valor', 0.0) or 0.0),
-    )
 
 app = Flask(__name__)
 
@@ -105,11 +74,6 @@ def webhook_pagamento():
     if status not in ('aprovada', 'recusada', 'pendente'):
         return jsonify({'error': 'status inválido'}), 400
 
-    publish_message('status_pagamento', {
-        'leilao_id': leilao_id,
-        'id_transacao': id_transacao,
-        'status': status
-    })
     
     return jsonify({'ok': True}), 200
 
