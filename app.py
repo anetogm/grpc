@@ -10,6 +10,7 @@ import threading
 import json
 import time
 import redis
+from services.generated import pagamento_pb2_grpc, pagamento_pb2
 from services.generated import leilao_pb2_grpc, leilao_pb2
 from services.generated import lance_pb2_grpc, lance_pb2
 
@@ -106,7 +107,6 @@ def lance():
     resultado_dic = MessageToDict(resultado, preserving_proto_field_name=True)
     print(f"DEBUG - resultado do lance: {resultado_dic}")
     
-    # CORREÇÃO: verificar 'success' ao invés de 'sucesso'
     if resultado_dic.get('success', False):  
         interessados = redis_client.smembers(f'interesses:{leilao_id}')
         print(f"Interessados no leilão {leilao_id}: {list(interessados)}")
@@ -164,13 +164,40 @@ def notificar_vencedor():
     
     print(f"Recebido vencedor do leilão {leilao_id}: {id_vencedor} com valor {valor}")
     
-    # ve quem ta interessado no leilao
+    link_pagamento = None
+    id_transacao = None
+    
+    # Se houver vencedor, processar pagamento via gRPC
+    if id_vencedor and id_vencedor != '-1':
+        try:
+            channel = grpc.insecure_channel('localhost:50053')
+            stub = pagamento_pb2_grpc.PagamentoServiceStub(channel)
+            
+            request_pagamento = pagamento_pb2.ProcessarPagamentoRequest()
+            request_pagamento.leilao_id = int(leilao_id)
+            request_pagamento.cliente_id = id_vencedor
+            request_pagamento.valor = float(valor)
+            request_pagamento.moeda = 'BRL'
+            
+            resultado = stub.ProcessarPagamento(request_pagamento)
+            resultado_dict = MessageToDict(resultado, preserving_proto_field_name=True)
+            
+            print(f"Resultado do pagamento: {resultado_dict}")
+            
+            if resultado_dict.get('success', False):
+                link_pagamento = resultado_dict.get('link_pagamento')
+                id_transacao = resultado_dict.get('id_transacao')
+        except Exception as e:
+            print(f"Erro ao processar pagamento via gRPC: {e}")
+    
+    # Buscar todos os interessados no leilão
     interessados = redis_client.smembers(f'interesses:{leilao_id}')
+    print(f"Notificando {len(interessados)} interessados sobre encerramento do leilão {leilao_id}")
     
     for cliente_id in interessados:
         channel_name = cliente_id.decode('utf-8')
         
-        # verifica se o cliente é o vencedor
+        # Verificar se o cliente é o vencedor
         if cliente_id.decode('utf-8') == id_vencedor and id_vencedor != '-1':
             message = {
                 "tipo": "vencedor_leilao",
@@ -178,10 +205,11 @@ def notificar_vencedor():
                 "id_vencedor": id_vencedor,
                 "valor": valor,
                 "venceu": True,
+                "link_pagamento": link_pagamento,
+                "id_transacao": id_transacao,
                 "message": f"Parabéns! Você venceu o leilão {leilao_id} com o lance de R$ {valor}"
             }
         else:
-            print("mnesagem pro perdedor")
             message = {
                 "tipo": "vencedor_leilao",
                 "leilao_id": leilao_id,

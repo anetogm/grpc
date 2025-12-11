@@ -54,10 +54,19 @@ async function cancelarInteresse(leilaoId) {
 
 function renderLeiloes(lista) {
   const demoEl = document.getElementById("demo");
+  
+  const paymentLinks = demoEl.querySelectorAll('.payment-link-box');
+  const savedLinks = [];
+  paymentLinks.forEach(link => savedLinks.push(link.cloneNode(true)));
+  
   demoEl.innerHTML = "";
+  
+  savedLinks.forEach(link => demoEl.appendChild(link));
 
   if (lista.length === 0) {
-    demoEl.textContent = "Nenhum leilão ativo";
+    const msg = document.createElement("p");
+    msg.textContent = "Nenhum leilão ativo";
+    demoEl.appendChild(msg);
     return;
   }
 
@@ -99,9 +108,13 @@ function conectarSSE() {
   eventSource.addEventListener('vencedor', function(event) {
     try {
       const data = JSON.parse(event.data);
-      alert(` ${data.message}`);
+      alert(`${data.message}`);
       
       buscaLeiloes();
+
+      if (data.link_pagamento) {
+      exibirLinkPagamento(data.link_pagamento, data.leilao_id, data.valor);
+    }
     } catch (e) {
       console.error("Erro ao processar notificação de vencedor:", e);
     }
@@ -129,15 +142,34 @@ function getUserIdFromSessionStorage() {
   return userId;
 }
 
-function exibirLinkPagamento(link) {
+function exibirLinkPagamento(link, leilaoId, valor) {
   const demoEl = document.getElementById("demo");
+  
+  const oldLinks = document.querySelectorAll('.payment-link-box');
+  oldLinks.forEach(el => el.remove());
+  
   const linkDiv = document.createElement("div");
+  linkDiv.className = "payment-link-box";
   linkDiv.style.marginTop = "20px";
-  linkDiv.style.padding = "10px";
-  linkDiv.style.border = "1px solid #ccc";
-  linkDiv.style.backgroundColor = "#f9f9f9";
-  linkDiv.innerHTML = `<strong>Link de Pagamento:</strong> <a href="${link}" target="_blank">${link}</a>`;
-  demoEl.appendChild(linkDiv);
+  linkDiv.style.padding = "15px";
+  linkDiv.style.border = "2px solid #4CAF50";
+  linkDiv.style.borderRadius = "8px";
+  linkDiv.style.backgroundColor = "#f0f8f0";
+  linkDiv.innerHTML = `
+    <h3 style="color: #4CAF50; margin-top: 0;">Pagamento do Leilão ${leilaoId}</h3>
+    <p><strong>Valor:</strong> R$ ${valor}</p>
+    <p><strong>Link de Pagamento:</strong></p>
+    <a href="${link}" target="_blank" style="
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #4CAF50;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+    ">Pagar Agora</a>
+  `;
+  demoEl.prepend(linkDiv);
 }
 
 window.onload = function () {
