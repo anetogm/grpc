@@ -87,14 +87,25 @@ function conectarSSE() {
   eventSource = new EventSource(`${baseUrl}stream?channel=${clienteId}`);
 
   eventSource.addEventListener('lance', function(event) {
-  try {
-    const data = JSON.parse(event.data);
-    alert(`Novo lance válido no leilão ${data.leilao_id}: R$ ${data.valor}`);
-    buscaLeiloes(); 
-  } catch (e) {
-    console.error("Erro ao processar dados SSE:", e);
-  }
-});
+    try {
+      const data = JSON.parse(event.data);
+      alert(`Novo lance válido no leilão ${data.leilao_id}: R$ ${data.valor}`);
+      buscaLeiloes(); 
+    } catch (e) {
+      console.error("Erro ao processar dados SSE:", e);
+    }
+  });
+
+  eventSource.addEventListener('vencedor', function(event) {
+    try {
+      const data = JSON.parse(event.data);
+      alert(` ${data.message}`);
+      
+      buscaLeiloes();
+    } catch (e) {
+      console.error("Erro ao processar notificação de vencedor:", e);
+    }
+  });
 
   eventSource.onerror = function (event) {
     console.error("Erro na conexão SSE:", event);

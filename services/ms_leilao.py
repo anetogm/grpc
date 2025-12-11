@@ -3,6 +3,7 @@ from concurrent import futures
 import time
 from datetime import datetime, timedelta
 import threading
+import requests
 from flask import Flask, jsonify, request
 import generated.leilao_pb2_grpc as leilao_pb2_grpc
 import generated.leilao_pb2 as leilao_pb2
@@ -15,7 +16,7 @@ from generated import lance_pb2_grpc, lance_pb2
 
 inicio = (datetime.now() + timedelta(seconds=2))
 inicio_novo = inicio.isoformat()
-fim = (inicio + timedelta(minutes=2)).isoformat()
+fim = (inicio + timedelta(minutes=0.5)).isoformat()
 
 leiloes = [
 	{
@@ -113,6 +114,7 @@ def gerenciar_leilao(leilao):
 	if tempo_ate_inicio > 0:
 		time.sleep(tempo_ate_inicio)
 	leilao['status'] = 'ativo'
+ 
 	##chamando o metodo para informar o lance que o leilao esta ativo
 	print(leilao2)
 	ativo = stub.IniciarLeilao(lance_pb2.IniciarLeilaoRequest(leilao=leilao2))
@@ -123,6 +125,17 @@ def gerenciar_leilao(leilao):
 	leilao['status'] = 'encerrado'
 	finalizado = stub.FinalizarLeilao(lance_pb2.FinalizarLeilaoRequest(leilao_id=leilao['id']))
 	print(finalizado)
+ 
+	# TODO grpcar isso
+	if finalizado.success:
+            payload = {
+                'leilao_id': leilao['id'],
+                'id_vencedor': finalizado.id_vencedor,
+                'valor': finalizado.valor
+            }
+            print(f"Notificando gateway sobre vencedor: {payload}")
+            requests.post('http://localhost:4444/notificar_vencedor', json=payload, timeout=5)
+
 
 def main():
 	threads = []

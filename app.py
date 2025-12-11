@@ -155,5 +155,48 @@ def cancelar_interesse():
     
     return jsonify({'message': 'Interesse cancelado com sucesso'})
 
+@app.post("/notificar_vencedor")
+def notificar_vencedor():
+    data = request.get_json()
+    leilao_id = data.get('leilao_id')
+    id_vencedor = data.get('id_vencedor')
+    valor = data.get('valor')
+    
+    print(f"Recebido vencedor do leilão {leilao_id}: {id_vencedor} com valor {valor}")
+    
+    # ve quem ta interessado no leilao
+    interessados = redis_client.smembers(f'interesses:{leilao_id}')
+    
+    for cliente_id in interessados:
+        channel_name = cliente_id.decode('utf-8')
+        
+        # verifica se o cliente é o vencedor
+        if cliente_id.decode('utf-8') == id_vencedor and id_vencedor != '-1':
+            message = {
+                "tipo": "vencedor_leilao",
+                "leilao_id": leilao_id,
+                "id_vencedor": id_vencedor,
+                "valor": valor,
+                "venceu": True,
+                "message": f"Parabéns! Você venceu o leilão {leilao_id} com o lance de R$ {valor}"
+            }
+        else:
+            print("mnesagem pro perdedor")
+            message = {
+                "tipo": "vencedor_leilao",
+                "leilao_id": leilao_id,
+                "id_vencedor": id_vencedor,
+                "valor": valor,
+                "venceu": False,
+                "message": f"Leilão {leilao_id} encerrado. Vencedor: {id_vencedor if id_vencedor != '-1' else 'Sem vencedor'}"
+            }
+        
+        print(f"Publicando SSE para channel '{channel_name}': {message}")
+        sse.publish(message, type='vencedor', channel=channel_name)
+    
+    redis_client.delete(f'interesses:{leilao_id}')
+    
+    return jsonify({'message': 'Vencedor notificado com sucesso'})
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=4444, debug=False, use_reloader=False)
