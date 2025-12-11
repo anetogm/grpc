@@ -19,18 +19,11 @@ class PagamentoServiceImpl (pagamento_pb2_grpc.PagamentoServiceServicer):
             'moeda': request.moeda or 'BRL'
         }
         
-        link_pagamento = None
-        id_transacao = None
-        
-        try:
-            resp = requests.post('http://localhost:5001/api/pagamento', json=payload, timeout=5)
-            resp.raise_for_status()
-            data = resp.json()
-            link_pagamento = data.get('link_pagamento')
-            id_transacao = data.get('id_transacao')
-        except Exception:
-            id_transacao = id_transacao or f"tx-{request.leilao_id}-{int(time.time())}"
-            link_pagamento = link_pagamento or f"http://pagamento/{id_transacao}"
+        resp = requests.post('http://localhost:5001/api/pagamento', json=payload, timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        link_pagamento = data.get('link_pagamento')
+        id_transacao = data.get('id_transacao')
 
         publish_message('link_pagamento', {
             'leilao_id': request.leilao_id,
@@ -54,21 +47,6 @@ class PagamentoServiceImpl (pagamento_pb2_grpc.PagamentoServiceServicer):
             link_pagamento=link_pagamento
         )
     
-    def StreamPagamentos(self, request, context):
-        q = Queue(maxsize=100)
-        with subs_lock:
-            subscribers.add(q)
-        try:
-            while context.is_active():
-                try:
-                    notif = q.get(timeout=1)
-                    yield notif
-                except Empty:
-                    continue
-        finally:
-            with subs_lock:
-                subscribers.discard(q)
-    
     def NotificarVencedor(self, request, context):
         payload = {
             'leilao_id': request.leilao_id,
@@ -76,17 +54,12 @@ class PagamentoServiceImpl (pagamento_pb2_grpc.PagamentoServiceServicer):
             'valor': request.valor,
             'moeda': 'BRL'
         }
-        link_pagamento = None
-        id_transacao = None
-        try:
-            resp = requests.post('http://localhost:5001/api/pagamento', json=payload, timeout=5)
-            resp.raise_for_status()
-            data = resp.json()
-            link_pagamento = data.get('link_pagamento')
-            id_transacao = data.get('id_transacao')
-        except Exception:
-            id_transacao = f"tx-{request.leilao_id}-{int(time.time())}"
-            link_pagamento = f"http://pagamento/{id_transacao}"
+        
+        resp = requests.post('http://localhost:5001/api/pagamento', json=payload, timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        link_pagamento = data.get('link_pagamento')
+        id_transacao = data.get('id_transacao')
 
         publish_message('link_pagamento', {
             'leilao_id': request.leilao_id,
@@ -96,11 +69,13 @@ class PagamentoServiceImpl (pagamento_pb2_grpc.PagamentoServiceServicer):
             'id_transacao': id_transacao,
             'link_pagamento': link_pagamento
         })
+        
         publish_message('status_pagamento', {
             'leilao_id': request.leilao_id,
             'id_transacao': id_transacao,
             'status': 'pendente'
         })
+        
         return pagamento_pb2.NotificarVencedorResponse(success=True)
 
 def publish_message(event_type, message_dict):
@@ -113,10 +88,6 @@ def publish_message(event_type, message_dict):
         status=message_dict.get('status') or None,
         valor=float(message_dict.get('valor', 0.0) or 0.0),
     )
-    
-    with subs_lock:
-        for q in list(subscribers):
-            q.put(notif, block=False)
 
 app = Flask(__name__)
 
@@ -130,6 +101,7 @@ def webhook_pagamento():
     
     if not id_transacao or leilao_id is None:
         return jsonify({'error': 'id_transacao e leilao_id são obrigatórios'}), 400
+    
     if status not in ('aprovada', 'recusada', 'pendente'):
         return jsonify({'error': 'status inválido'}), 400
 

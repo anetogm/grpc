@@ -27,10 +27,6 @@ message NotificacaoPagamento {
     double valor = 7;
 }
 
-message StreamPagamentosRequest {
-    string cliente_id = 1;
-}
-
 message NotificarVencedorRequest {
     int32 leilao_id = 1;
     string id_vencedor = 2;
@@ -44,6 +40,5 @@ message NotificarVencedorResponse {
 // Serviço de Pagamento
 service PagamentoService {
     rpc ProcessarPagamento(ProcessarPagamentoRequest) returns (ProcessarPagamentoResponse);
-    rpc StreamPagamentos(StreamPagamentosRequest) returns (stream NotificacaoPagamento);
     rpc NotificarVencedor(NotificarVencedorRequest) returns (NotificarVencedorResponse);
 }
