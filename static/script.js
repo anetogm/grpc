@@ -14,7 +14,7 @@ async function buscaLeiloes() {
   try {
     const res = await fetch(url);
     const body = await res.json();
-    renderLeiloes(body);
+    renderLeiloes(body.leiloes || []);
   } catch (e) {
     document.getElementById("demo").textContent = "Erro ao buscar leilões";
   }
