@@ -148,9 +148,9 @@ def healthz():
 def serve():
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         pagamento_pb2_grpc.add_PagamentoServiceServicer_to_server(PagamentoServiceImpl(), server)
-        server.add_insecure_port('[::]:50051')
+        server.add_insecure_port('[::]:50053')
         server.start()
-        print('[Pagamento] gRPC server em :50051')
+        print('[Pagamento] gRPC server em :50053')
         server.wait_for_termination()
 
 if __name__ == '__main__':
