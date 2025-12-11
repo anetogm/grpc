@@ -8,6 +8,7 @@ from flask import Flask, jsonify, request
 import generated.leilao_pb2_grpc as leilao_pb2_grpc
 import generated.leilao_pb2 as leilao_pb2
 from generated import lance_pb2_grpc, lance_pb2
+from generated import pagamento_pb2_grpc, pagamento_pb2
 
 # TODO mudar o publicar evento
 # TODO implementar criar leiloes
@@ -16,7 +17,7 @@ from generated import lance_pb2_grpc, lance_pb2
 
 inicio = (datetime.now() + timedelta(seconds=2))
 inicio_novo = inicio.isoformat()
-fim = (inicio + timedelta(minutes=0.5)).isoformat()
+fim = (inicio + timedelta(minutes=2)).isoformat()
 
 leiloes = [
 	{
@@ -99,8 +100,10 @@ def converte_datetime(ativos):
 def gerenciar_leilao(leilao):
 	channel = grpc.insecure_channel('localhost:50052')
 	stub = lance_pb2_grpc.LanceServiceStub(channel)
-	leilao2 = lance_pb2.LeilaoAtivo(id=leilao['id'],nome=leilao['nome'],descricao=leilao['descricao'],valor_inicial=leilao['valor_inicial'],inicio=leilao['inicio'],fim=leilao['fim'])
-
+	try:
+		leilao2 = lance_pb2.LeilaoAtivo(id=leilao['id'],nome=leilao['nome'],descricao=leilao['descricao'],valor_inicial=leilao['valor_inicial'],inicio=leilao['inicio'],fim=leilao['fim'])
+	except Exception as e:
+		print(f"Deu erro nessa gRPC {e}")
 	inicio = leilao['inicio']
 	fim = leilao['fim']
 
@@ -117,24 +120,37 @@ def gerenciar_leilao(leilao):
  
 	##chamando o metodo para informar o lance que o leilao esta ativo
 	print(leilao2)
-	ativo = stub.IniciarLeilao(lance_pb2.IniciarLeilaoRequest(leilao=leilao2))
+	try:
+		ativo = stub.IniciarLeilao(lance_pb2.IniciarLeilaoRequest(leilao=leilao2))
+	except Exception as e:
+		print(f"Aquie deu erro {e}")
 	print(f"Aqui está o leilao ativo: {ativo}")
 	tempo_ate_fim = (fim - datetime.now()).total_seconds()
 	if tempo_ate_fim > 0:
 		time.sleep(tempo_ate_fim)
 	leilao['status'] = 'encerrado'
-	finalizado = stub.FinalizarLeilao(lance_pb2.FinalizarLeilaoRequest(leilao_id=leilao['id']))
+	try:
+		finalizado = stub.FinalizarLeilao(lance_pb2.FinalizarLeilaoRequest(leilao_id=leilao['id']))
+	except Exception as e:
+		print(f"AQUIUIII {e}")
 	print(finalizado)
  
 	# TODO grpcar isso
 	if finalizado.success:
-            payload = {
-                'leilao_id': leilao['id'],
-                'id_vencedor': finalizado.id_vencedor,
-                'valor': finalizado.valor
-            }
-            print(f"Notificando gateway sobre vencedor: {payload}")
-            requests.post('http://localhost:4444/notificar_vencedor', json=payload, timeout=5)
+		payload = {
+			'leilao_id': leilao['id'],
+			'id_vencedor': finalizado.id_vencedor,
+			'valor': finalizado.valor
+		}
+		channel = grpc.insecure_channel('localhost:50053')
+		stub2 = pagamento_pb2_grpc.PagamentoServiceStub(channel)
+		print(f"Notificando gateway sobre vencedor: {payload}")
+		response = stub2.NotificarVencedor(pagamento_pb2.NotificarVencedorRequest(leilao_id=payload['leilao_id'],id_vencedor=payload['id_vencedor'],valor=payload['valor']))
+		if response.success:
+			print('Vencedor notificado!')
+		else:
+			print('Erro ao noitficar vencedor')
+		#requests.post('http://localhost:4444/notificar_vencedor', json=payload, timeout=5)
 
 
 def main():
