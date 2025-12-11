@@ -77,10 +77,10 @@ class LanceServiceImpl(lance_pb2_grpc.LanceServiceServicer):
                 leiloes_ativos.pop(leilao_id, None)
 
             if vencedor:
-                id_vencedor = vencedor.get('id_cliente', -1)
-                valor_vencedor = vencedor.get('valor', 0)
+                id_vencedor = str(vencedor.get('id_cliente', '-1'))
+                valor_vencedor = vencedor.get('valor', 0.0)
             else:
-                id_vencedor = -1
+                id_vencedor = '-1'
                 valor_vencedor = 0
 
             print(f'[ms_lance] Leilão finalizado: {leilao_id}, vencedor={id_vencedor}, valor={valor_vencedor}')
@@ -89,7 +89,7 @@ class LanceServiceImpl(lance_pb2_grpc.LanceServiceServicer):
             print(f'[ms_lance] Erro em FinalizarLeilao: {e}')
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
-            return lance_pb2.FinalizarLeilaoResponse(success=0, id_vencedor=-1, valor=0)
+            return lance_pb2.FinalizarLeilaoResponse(success=0, id_vencedor='-1', valor=0)
     
     if False:
         def IniciarLeilao(self, request, context):

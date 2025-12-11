@@ -84,26 +84,6 @@ class LeilaoServiceImpl(leilao_pb2_grpc.LeilaoServiceServicer):
 		for _ in []:
 			yield _
 
-def publicar_evento(fila, mensagem):
-	global publisher_connection, publisher_channel
-	
-	with publisher_lock:
-		try:
-			if publisher_connection is None or publisher_connection.is_closed:
-				publisher_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-				publisher_channel = publisher_connection.channel()
-				publisher_channel.queue_declare(queue='leilao_iniciado')
-				publisher_channel.queue_declare(queue='leilao_finalizado')
-			
-			publisher_channel.basic_publish(exchange='', routing_key=fila, body=mensagem)
-			print(f"[x] Evento publicado em {fila}: {mensagem}")
-			return True
-		except Exception as e:
-			print(f"[ms_leilao] Error publishing event: {e}")
-			publisher_connection = None
-			publisher_channel = None
-			return False
-
 def converte_datetime(ativos):
 	res = []
 	for leilao in ativos:

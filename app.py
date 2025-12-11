@@ -94,7 +94,6 @@ def lance():
     if not leilao_id or not user_id or not valor:
         return jsonify({"error": "Dados incompletos"}), 400
 
-    #aqui jás um post para /lance no ms_lance agora vou meter o gRPCzão aqui
     channel = grpc.insecure_channel('localhost:50052')
     stub = lance_pb2_grpc.LanceServiceStub(channel)
     
@@ -105,17 +104,32 @@ def lance():
 
     resultado = stub.EnviarLance(novo_lance)
     resultado_dic = MessageToDict(resultado, preserving_proto_field_name=True)
-    print(resultado_dic)
+    print(f"DEBUG - resultado do lance: {resultado_dic}")
+    
+    # CORREÇÃO: verificar 'success' ao invés de 'sucesso'
+    if resultado_dic.get('success', False):  
+        interessados = redis_client.smembers(f'interesses:{leilao_id}')
+        print(f"Interessados no leilão {leilao_id}: {list(interessados)}")
+        for cliente_id in interessados:
+            channel_name = cliente_id.decode('utf-8')
+            message = {
+                "tipo": "lance",
+                "message": "Novo lance no leilão",
+                "leilao_id": leilao_id,
+                "valor": valor,
+                "user_id": user_id
+            }
+            print(f"Publicando SSE para channel '{channel_name}': {message}")
+            sse.publish(message, type='lance', channel=channel_name) 
     
     return jsonify(resultado_dic)
-
 
 @app.post("/registrar_interesse")
 def registrar_interesse():
     data = request.get_json()
     leilao_id = data.get('leilao_id')
     cliente_id = data.get('cliente_id')
-    
+    print(f"Registrando interesse: leilao_id={leilao_id}, cliente_id={cliente_id}")
     if not leilao_id or not cliente_id:
         return jsonify({'error': 'leilao_id e cliente_id são obrigatórios'}), 400
     

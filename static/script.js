@@ -86,30 +86,15 @@ function renderLeiloes(lista) {
 function conectarSSE() {
   eventSource = new EventSource(`${baseUrl}stream?channel=${clienteId}`);
 
-  eventSource.onmessage = function (event) {
-    try {
-      const data = JSON.parse(event.data);
-      console.log("Notificação SSE:", data);
-      if (data.tipo === "novo_lance_valido") {
-        alert(
-          `Novo lance válido no leilão ${data.leilao_id}: R$ ${data.valor}`
-        );
-        buscaLeiloes();
-      } else if (data.tipo === "lance_invalido") {
-        alert("Seu lance foi inválido.");
-      } else if (data.tipo === "vencedor_leilao") {
-        alert(
-          `Leilão ${data.leilao_id} encerrado. Vencedor: ${data.id_vencedor}`
-        );
-      } else if (data.tipo === "link_pagamento") {
-        exibirLinkPagamento(data.link_pagamento);
-      } else if (data.tipo === "status_pagamento") {
-        alert(`Status do pagamento: ${data.status}`);
-      }
-    } catch (e) {
-      console.error("Erro ao processar dados SSE:", e);
-    }
-  };
+  eventSource.addEventListener('lance', function(event) {
+  try {
+    const data = JSON.parse(event.data);
+    alert(`Novo lance válido no leilão ${data.leilao_id}: R$ ${data.valor}`);
+    buscaLeiloes(); 
+  } catch (e) {
+    console.error("Erro ao processar dados SSE:", e);
+  }
+});
 
   eventSource.onerror = function (event) {
     console.error("Erro na conexão SSE:", event);
@@ -118,7 +103,7 @@ function conectarSSE() {
       setTimeout(() => conectarSSE(), 5000);
     }
   };
-
+  
   eventSource.onopen = function () {
     console.log("SSE conectado.");
   };
