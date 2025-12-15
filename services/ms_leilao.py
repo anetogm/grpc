@@ -17,7 +17,7 @@ from generated import pagamento_pb2_grpc, pagamento_pb2
 
 inicio = (datetime.now() + timedelta(seconds=2))
 inicio_novo = inicio.isoformat()
-fim = (inicio + timedelta(minutes=1)).isoformat()
+fim = (inicio + timedelta(seconds=30)).isoformat()
 
 leiloes = [
 	{
@@ -35,7 +35,7 @@ leiloes = [
 		'descricao': 'Iphone 17 Pro Max Turbo assinado pelo Steve Jobs',
 		'valor_inicial': 2000,
 		'inicio': inicio_novo,
-        'fim': fim,
+		'fim': fim,
 		'status': 'ativo'
 	}
 ]
@@ -142,19 +142,29 @@ def gerenciar_leilao(leilao):
 			'id_vencedor': finalizado.id_vencedor,
 			'valor': finalizado.valor
 		}
-		channel = grpc.insecure_channel('localhost:50053')
-		
+
+		channel = grpc.insecure_channel('localhost:50053')  # confirme a porta correta do pagamento
 		stub2 = pagamento_pb2_grpc.PagamentoServiceStub(channel)
-		
-		print(f"Notificando gateway sobre vencedor: {payload}")
+
+		response = None
 		try:
-			response = stub2.NotificarVencedor(pagamento_pb2.NotificarVencedorRequest(leilao_id=payload['leilao_id'],id_vencedor=payload['id_vencedor'],valor=payload['valor']))
+			req = pagamento_pb2.NotificarVencedorRequest(
+				leilao_id=str(payload['leilao_id']),
+				id_vencedor=str(payload['id_vencedor']),
+				valor=float(payload['valor']),
+			)
+			response = stub2.NotificarVencedor(req)
+		except grpc.RpcError as rpc_err:
+			print(f"[ms_leilao] RPC error ao notificar pagamento: code={rpc_err.code()} details={rpc_err.details()}")
 		except Exception as e:
-			print(f"Esse é o erro ao chamar Notificarvencedor (pagamento): {e}")
-		if response.success:
+			print(f"[ms_leilao] Erro inesperado ao notificar pagamento: {e}")
+		finally:
+			channel.close()
+
+		if response and getattr(response, 'success', False):
 			print('Vencedor notificado!')
 		else:
-			print('Erro ao noitficar vencedor')
+			print('Falha ao notificar vencedor ou resposta inválida:', response)
 		#requests.post('http://localhost:4444/notificar_vencedor', json=payload, timeout=5)
 
 
