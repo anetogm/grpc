@@ -239,6 +239,9 @@ def serve():
         server.start()
         print("[api_gateway] Servidor gRPC iniciado na porta 50054")
         
+        while True:
+            time.sleep(86400)
+        
     except Exception as e:
         print(f"[api_gateway] ERRO ao iniciar servidor gRPC: {e}")
         import traceback

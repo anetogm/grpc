@@ -13,7 +13,7 @@ from generated import api_pb2_grpc, api_pb2
 
 inicio = (datetime.now() + timedelta(seconds=2))
 inicio_novo = inicio.isoformat()
-fim = (inicio + timedelta(minutes=2)).isoformat()
+fim = (inicio + timedelta(minutes=1)).isoformat()
 
 leiloes = [
 	{
