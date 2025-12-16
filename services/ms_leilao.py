@@ -74,6 +74,9 @@ class LeilaoServiceImpl(leilao_pb2_grpc.LeilaoServiceServicer):
 			leiloes.append(pedido)
 			nova_leilao_event.set()
 			print(f"Esse é a lista de leiloes atual: {leiloes}")
+   
+			threading.Thread(target=gerenciar_leilao, args=(pedido,), daemon=True).start()
+   
 			return leilao_pb2.CriarLeilaoResponse(success=True, leilao_id=pedido['id'])
 		except Exception as e:
 			print(f"Ta chegando aqui: {e}")
