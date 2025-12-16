@@ -179,12 +179,7 @@ def criar_request_leilao():
 	request = leilao_pb2.ListarLeiloesRequest()
 	return request
 
-@app.get("/leiloes")
-def get_ativos():
-	channel = grpc.insecure_channel('localhost:50051')
-	stub = leilao_pb2_grpc.LeilaoServiceStub(channel)
-	leiloes = stub.ListarLeiloes(criar_request_leilao())
-	return leiloes.json()
+
 
 if __name__ == "__main__":
 	def serve():
@@ -205,6 +200,7 @@ if __name__ == "__main__":
 		except KeyboardInterrupt:
 			print("[ms_leilao] Servidor encerrado")
 			server.stop(0)
-	threading.Thread(target=serve,daemon=True).start()
-	app.run(host="127.0.0.1", port=4447, debug=False, use_reloader=False)
+	t = threading.Thread(target=serve,daemon=True)
+	t.start()
+	t.join()
  

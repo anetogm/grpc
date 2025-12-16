@@ -7,7 +7,6 @@ import os
 import threading
 
 lock = threading.Lock()
-app = Flask(__name__)
 
 leiloes_ativos = {}
 lances_atuais = {}
@@ -90,71 +89,18 @@ class LanceServiceImpl(lance_pb2_grpc.LanceServiceServicer):
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
             return lance_pb2.FinalizarLeilaoResponse(success=0, id_vencedor='-1', valor=0)
-    
-    if False:
-        def IniciarLeilao(self, request, context):
-            try:
-                leiloes_ativos[request.leilao.id] = {
-                    'nome': request.leilao.nome,
-                    'valor': request.leilao.valor_inicial,
-                    'descricao': request.leilao.descricao
-                }
-                print(f'iniciou uns leiloes {leiloes_ativos}')
-                return lance_pb2.IniciarLeilaoResponse(success=1)
-            except:
-                return lance_pb2.IniciarLeilaoResponse(success=0)
-        
-        def FinalizarLeilao(self, request, context):
-            id = request.leilao_id
-            id_vencedor1 = lances_atuais[id]['id_cliente']
-            valor_vencedor = lances_atuais[id]['valor']
-            leiloes_ativos[id].pop()
-            return super().FinalizarLeilaoResponse(success=1, id_vencedor=id_vencedor1, valor=valor_vencedor)
-
-def callback_leilao_iniciado(ch, method, properties, body):
-    return False
-
-def callback_leilao_finalizado(ch, method, properties, body):
-    print("Recebido em leilao_finalizado:", body)
-    leilao_id = int(body.decode().split(',')[0])
-
-    with lock:
-        leiloes_ativos.pop(leilao_id, None)
-        vencedor = lances_atuais.pop(leilao_id, None)
-
-    if vencedor:
-        msg_vencedor = json.dumps({'leilao_id': leilao_id, 'id_vencedor': vencedor['id_cliente'], 'valor': vencedor['valor']})
-        publicar_vencedor('leilao_vencedor', msg_vencedor)
-        print(f"Vencedor publicado: {msg_vencedor}")
-
-def publish_message(routing_key, message):
-    return False
-
-def publicar_vencedor(exchange, message):
-    return False
 
 def verifica_lance(a: lance_pb2.Lance):
-    # Check if auction exists and is active
     if a.leilao_id not in leiloes_ativos:
         return LEILAO_INATIVO
-    
-    # Check if this is the first bid or if it's higher than current bid
+
     if a.leilao_id not in lances_atuais:
-        return LANCE_VALIDADO  # First bid on this auction
-    
-    # Check if new bid is higher than current bid
-    # lances atuais?
+        return LANCE_VALIDADO 
+
     if leiloes_ativos[a.leilao_id]['valor'] >= a.valor:
         return LANCE_INFERIOR
     
     return LANCE_VALIDADO
-
-@app.get("/debug/leiloes")
-def debug_leiloes():
-    return jsonify({
-        'leiloes_ativos': list(leiloes_ativos.keys()),
-        'lances_atuais': list(lances_atuais.keys())
-    })
 
 def serve():
     """Iniciar servidor gRPC"""
@@ -173,5 +119,6 @@ def serve():
 if __name__ == "__main__":
     import time
     time.sleep(1)
-    threading.Thread(target=serve, daemon=True).start()
-    app.run(host="127.0.0.1", port=4445, debug=False, use_reloader=False)
+    t = threading.Thread(target=serve, daemon=True)
+    t.start()
+    t.join()
