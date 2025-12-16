@@ -49,15 +49,22 @@ class LeilaoServiceImpl(leilao_pb2_grpc.LeilaoServiceServicer):
 	
 	def ListarLeiloes(self, request, context):
 		response = leilao_pb2.ListarLeiloesResponse()
+		
 		for leilao in leiloes:
-			item = response.leiloes.add()
-			item.id = leilao['id']
-			item.nome = leilao['nome']
-			item.descricao = leilao['descricao']
-			item.valor_inicial = leilao['valor_inicial']
-			item.inicio = leilao['inicio']
-			item.fim = leilao['fim']
-			item.status = leilao['status']
+			fim = leilao['fim']
+			if isinstance(fim, str):
+				fim = datetime.fromisoformat(fim)
+
+			if fim > datetime.now() and leilao['status'] != 'encerrado':
+				item = response.leiloes.add()
+				item.id = leilao['id']
+				item.nome = leilao['nome']
+				item.descricao = leilao['descricao']
+				item.valor_inicial = leilao['valor_inicial']
+				item.inicio = leilao['inicio']
+				item.fim = leilao['fim']
+				item.status = leilao['status']
+    
 		return response
 	
 	def CriarLeilao(self, request, context):
