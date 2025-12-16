@@ -27,18 +27,7 @@ message NotificacaoPagamento {
     double valor = 7;
 }
 
-message NotificarVencedorRequest {
-    int32 leilao_id = 1;
-    string id_vencedor = 2;
-    double valor = 3;
-}
-
-message NotificarVencedorResponse {
-    bool success = 1;
-}
-
 // Serviço de Pagamento
 service PagamentoService {
     rpc ProcessarPagamento(ProcessarPagamentoRequest) returns (ProcessarPagamentoResponse);
-    rpc NotificarVencedor(NotificarVencedorRequest) returns (NotificarVencedorResponse);
 }

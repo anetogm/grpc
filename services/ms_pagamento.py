@@ -33,29 +33,6 @@ class PagamentoServiceImpl (pagamento_pb2_grpc.PagamentoServiceServicer):
         id_transacao=id_transacao,
         link_pagamento=link_pagamento
         )
-    
-    def NotificarVencedor(self, request, context):
-        payload = {
-            'leilao_id': request.leilao_id,
-            'cliente_id': request.id_vencedor,
-            'valor': request.valor,
-            'moeda': 'BRL'
-        }
-        
-        resp = requests.post('http://localhost:5001/api/pagamento', json=payload, timeout=5)
-        resp.raise_for_status()
-        data = resp.json()
-        link_pagamento = data.get('link_pagamento')
-        id_transacao = data.get('id_transacao')
-
-       #chamar metodo api_gatewaty
-        channel = grpc.insecure_channel('localhost:50054')
-        stub3 = api_pb2_grpc.ApiServiceStub(channel)
-        response = stub3.NotificarVencedor_api(api_pb2.NotificarVencedorRequest_api(leilao_id=payload['leilao_id'],id_vencedor=payload['cliente_id'],valor=payload['valor']))
-        if(response.success):
-            return pagamento_pb2.NotificarVencedorResponse(success=True)
-        else:
-            return pagamento_pb2.NotificarVencedorResponse(success=False)
 
 
 app = Flask(__name__)

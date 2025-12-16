@@ -40,16 +40,6 @@ class PagamentoServiceStub(object):
                 request_serializer=pagamento__pb2.ProcessarPagamentoRequest.SerializeToString,
                 response_deserializer=pagamento__pb2.ProcessarPagamentoResponse.FromString,
                 _registered_method=True)
-        self.StreamPagamentos = channel.unary_stream(
-                '/pagamento.PagamentoService/StreamPagamentos',
-                request_serializer=pagamento__pb2.StreamPagamentosRequest.SerializeToString,
-                response_deserializer=pagamento__pb2.NotificacaoPagamento.FromString,
-                _registered_method=True)
-        self.NotificarVencedor = channel.unary_unary(
-                '/pagamento.PagamentoService/NotificarVencedor',
-                request_serializer=pagamento__pb2.NotificarVencedorRequest.SerializeToString,
-                response_deserializer=pagamento__pb2.NotificarVencedorResponse.FromString,
-                _registered_method=True)
 
 
 class PagamentoServiceServicer(object):
@@ -62,18 +52,6 @@ class PagamentoServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def StreamPagamentos(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def NotificarVencedor(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
 
 def add_PagamentoServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -81,16 +59,6 @@ def add_PagamentoServiceServicer_to_server(servicer, server):
                     servicer.ProcessarPagamento,
                     request_deserializer=pagamento__pb2.ProcessarPagamentoRequest.FromString,
                     response_serializer=pagamento__pb2.ProcessarPagamentoResponse.SerializeToString,
-            ),
-            'StreamPagamentos': grpc.unary_stream_rpc_method_handler(
-                    servicer.StreamPagamentos,
-                    request_deserializer=pagamento__pb2.StreamPagamentosRequest.FromString,
-                    response_serializer=pagamento__pb2.NotificacaoPagamento.SerializeToString,
-            ),
-            'NotificarVencedor': grpc.unary_unary_rpc_method_handler(
-                    servicer.NotificarVencedor,
-                    request_deserializer=pagamento__pb2.NotificarVencedorRequest.FromString,
-                    response_serializer=pagamento__pb2.NotificarVencedorResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -121,60 +89,6 @@ class PagamentoService(object):
             '/pagamento.PagamentoService/ProcessarPagamento',
             pagamento__pb2.ProcessarPagamentoRequest.SerializeToString,
             pagamento__pb2.ProcessarPagamentoResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def StreamPagamentos(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_stream(
-            request,
-            target,
-            '/pagamento.PagamentoService/StreamPagamentos',
-            pagamento__pb2.StreamPagamentosRequest.SerializeToString,
-            pagamento__pb2.NotificacaoPagamento.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def NotificarVencedor(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/pagamento.PagamentoService/NotificarVencedor',
-            pagamento__pb2.NotificarVencedorRequest.SerializeToString,
-            pagamento__pb2.NotificarVencedorResponse.FromString,
             options,
             channel_credentials,
             insecure,

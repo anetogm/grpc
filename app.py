@@ -195,9 +195,8 @@ def notificar_vencedor(a):
         except Exception as e:
             print(f"Erro ao processar pagamento via gRPC: {e}")
     
-    # busca e notifica todos os interessados no leilão
     interessados = redis_client.smembers(f'interesses:{leilao_id}')
-    with app.app_context():
+    with app.app_context():        
         for cliente_id in interessados:
             channel_name = cliente_id.decode('utf-8')
             
@@ -227,8 +226,7 @@ def notificar_vencedor(a):
             sse.publish(message, type='vencedor', channel=channel_name)
         
         redis_client.delete(f'interesses:{leilao_id}')
-    
-    return jsonify({'message': 'Vencedor notificado com sucesso'})
+        print(f"[API Gateway] Notificação concluída para leilão {leilao_id}")
 
 def serve():
     try:
