@@ -72,6 +72,8 @@ class LeilaoServiceImpl(leilao_pb2_grpc.LeilaoServiceServicer):
 				'status': 'ativo'
 			}
 			leiloes.append(pedido)
+			nova_leilao_event.set()
+			print(f"Esse é a lista de leiloes atual: {leiloes}")
 			return leilao_pb2.CriarLeilaoResponse(success=True, leilao_id=pedido['id'])
 		except Exception as e:
 			print(f"Ta chegando aqui: {e}")
@@ -162,14 +164,21 @@ def gerenciar_leilao(leilao):
 			#requests.post('http://localhost:4444/notificar_vencedor', json=payload, timeout=5)
 
 
+nova_leilao_event = threading.Event()
+
 def main():
-	threads = []
-	for leilao in leiloes:
-		t = threading.Thread(target=gerenciar_leilao, args=(leilao,))
-		t.start()
-		threads.append(t)
-	for t in threads:
-		t.join()
+    leiloes_processados = set()
+    
+    while True:
+        for leilao in leiloes:
+            leilao_id = leilao['id']
+            if leilao_id not in leiloes_processados:
+                leiloes_processados.add(leilao_id)
+                t = threading.Thread(target=gerenciar_leilao, args=(leilao,), daemon=True)
+                t.start()
+        
+        nova_leilao_event.wait(timeout=5)
+        nova_leilao_event.clear()
 
 
 leiloes_ativos = {}
