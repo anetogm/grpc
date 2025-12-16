@@ -9,15 +9,11 @@ import generated.leilao_pb2_grpc as leilao_pb2_grpc
 import generated.leilao_pb2 as leilao_pb2
 from generated import lance_pb2_grpc, lance_pb2
 from generated import pagamento_pb2_grpc, pagamento_pb2
-
-# TODO mudar o publicar evento
-# TODO implementar criar leiloes
-# TODO implementar a classe com todas as funcoes
-# TODO criar leiloes iniciais
+from generated import api_pb2_grpc, api_pb2
 
 inicio = (datetime.now() + timedelta(seconds=2))
 inicio_novo = inicio.isoformat()
-fim = (inicio + timedelta(seconds=30)).isoformat()
+fim = (inicio + timedelta(minutes=2)).isoformat()
 
 leiloes = [
 	{
@@ -135,7 +131,6 @@ def gerenciar_leilao(leilao):
 		print(f"AQUIUIII {e}")
 	print(finalizado)
  
-	# TODO grpcar isso
 	if finalizado.success:
 		payload = {
 			'leilao_id': leilao['id'],
@@ -143,29 +138,51 @@ def gerenciar_leilao(leilao):
 			'valor': finalizado.valor
 		}
 
-		channel = grpc.insecure_channel('localhost:50053')  # confirme a porta correta do pagamento
-		stub2 = pagamento_pb2_grpc.PagamentoServiceStub(channel)
+		# notificar o ms_pagamento
+		channel_pagamento = grpc.insecure_channel('localhost:50053')
+		stub_pagamento = pagamento_pb2_grpc.PagamentoServiceStub(channel_pagamento)
 
-		response = None
+		response_pagamento = None
 		try:
 			req = pagamento_pb2.NotificarVencedorRequest(
-				leilao_id=str(payload['leilao_id']),
+				leilao_id=int(payload['leilao_id']),
 				id_vencedor=str(payload['id_vencedor']),
 				valor=float(payload['valor']),
 			)
-			response = stub2.NotificarVencedor(req)
+			response_pagamento = stub_pagamento.NotificarVencedor(req)
+			if response_pagamento and getattr(response_pagamento, 'success', False):
+				print('[ms_leilao] Pagamento notificado com sucesso!')
+			else:
+				print('[ms_leilao] Falha ao notificar pagamento')
 		except grpc.RpcError as rpc_err:
 			print(f"[ms_leilao] RPC error ao notificar pagamento: code={rpc_err.code()} details={rpc_err.details()}")
 		except Exception as e:
 			print(f"[ms_leilao] Erro inesperado ao notificar pagamento: {e}")
 		finally:
-			channel.close()
+			channel_pagamento.close()
 
-		if response and getattr(response, 'success', False):
-			print('Vencedor notificado!')
-		else:
-			print('Falha ao notificar vencedor ou resposta inválida:', response)
-		#requests.post('http://localhost:4444/notificar_vencedor', json=payload, timeout=5)
+		# notificar o API Gateway
+		channel_api = grpc.insecure_channel('localhost:50054')
+		stub_api = api_pb2_grpc.ApiServiceStub(channel_api)
+		
+		try:
+			req_api = api_pb2.NotificarVencedorRequest_api(
+				leilao_id=int(payload['leilao_id']),
+				id_vencedor=str(payload['id_vencedor']),
+				valor=float(payload['valor'])
+			)
+			response_api = stub_api.NotificarVencedor_api(req_api)
+			if response_api and getattr(response_api, 'success', False):
+				print('[ms_leilao] API Gateway notificado com sucesso! SSE enviado aos clientes.')
+			else:
+				print('[ms_leilao] Falha ao notificar API Gateway')
+		except grpc.RpcError as rpc_err:
+			print(f"[ms_leilao] RPC error ao notificar API Gateway: code={rpc_err.code()} details={rpc_err.details()}")
+		except Exception as e:
+			print(f"[ms_leilao] Erro inesperado ao notificar API Gateway: {e}")
+		finally:
+			channel_api.close()
+			#requests.post('http://localhost:4444/notificar_vencedor', json=payload, timeout=5)
 
 
 def main():

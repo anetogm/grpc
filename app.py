@@ -16,8 +16,6 @@ from services.generated import lance_pb2_grpc, lance_pb2
 from services.generated import api_pb2_grpc, api_pb2
 from concurrent import futures
 
-# TODO refazer a logica do sse agora que tamo usando grpc no lugar do rabbitmq
-
 lock = threading.Lock()
 rabbitmq_lock = threading.Lock()
 channel = None
@@ -162,11 +160,12 @@ def cancelar_interesse():
     
     return jsonify({'message': 'Interesse cancelado com sucesso'})
 
-def notificar_vencedor(a: pagamento_pb2.NotificarVencedorRequest):
-    data = a
-    leilao_id = data.leilao_id
-    id_vencedor = data.id_vencedor
-    valor = data.valor
+def notificar_vencedor(a):
+    print(f"[API Gateway] Entrando em notificar_vencedor")
+    
+    leilao_id = a.leilao_id
+    id_vencedor = a.id_vencedor
+    valor = a.valor
     
     print(f"Recebido vencedor do leilão {leilao_id}: {id_vencedor} com valor {valor}")
     
@@ -196,49 +195,54 @@ def notificar_vencedor(a: pagamento_pb2.NotificarVencedorRequest):
         except Exception as e:
             print(f"Erro ao processar pagamento via gRPC: {e}")
     
-    # Buscar todos os interessados no leilão
+    # busca e notifica todos os interessados no leilão
     interessados = redis_client.smembers(f'interesses:{leilao_id}')
-    print(f"Notificando {len(interessados)} interessados sobre encerramento do leilão {leilao_id}")
-    
-    for cliente_id in interessados:
-        channel_name = cliente_id.decode('utf-8')
+    with app.app_context():
+        for cliente_id in interessados:
+            channel_name = cliente_id.decode('utf-8')
+            
+            # verifica se o cliente é o vencedor
+            if cliente_id.decode('utf-8') == id_vencedor and id_vencedor != '-1':
+                message = {
+                    "tipo": "vencedor_leilao",
+                    "leilao_id": leilao_id,
+                    "id_vencedor": id_vencedor,
+                    "valor": valor,
+                    "venceu": True,
+                    "link_pagamento": link_pagamento,
+                    "id_transacao": id_transacao,
+                    "message": f"Parabéns! Você venceu o leilão {leilao_id} com o lance de R$ {valor}"
+                }
+            else:
+                message = {
+                    "tipo": "vencedor_leilao",
+                    "leilao_id": leilao_id,
+                    "id_vencedor": id_vencedor,
+                    "valor": valor,
+                    "venceu": False,
+                    "message": f"Leilão {leilao_id} encerrado. Vencedor: {id_vencedor if id_vencedor != '-1' else 'Sem vencedor'}"
+                }
+            
+            print(f"Publicando SSE para channel '{channel_name}': {message}")
+            sse.publish(message, type='vencedor', channel=channel_name)
         
-        # Verificar se o cliente é o vencedor
-        if cliente_id.decode('utf-8') == id_vencedor and id_vencedor != '-1':
-            message = {
-                "tipo": "vencedor_leilao",
-                "leilao_id": leilao_id,
-                "id_vencedor": id_vencedor,
-                "valor": valor,
-                "venceu": True,
-                "link_pagamento": link_pagamento,
-                "id_transacao": id_transacao,
-                "message": f"Parabéns! Você venceu o leilão {leilao_id} com o lance de R$ {valor}"
-            }
-        else:
-            message = {
-                "tipo": "vencedor_leilao",
-                "leilao_id": leilao_id,
-                "id_vencedor": id_vencedor,
-                "valor": valor,
-                "venceu": False,
-                "message": f"Leilão {leilao_id} encerrado. Vencedor: {id_vencedor if id_vencedor != '-1' else 'Sem vencedor'}"
-            }
-        
-        print(f"Publicando SSE para channel '{channel_name}': {message}")
-        sse.publish(message, type='vencedor', channel=channel_name)
-    
-    redis_client.delete(f'interesses:{leilao_id}')
+        redis_client.delete(f'interesses:{leilao_id}')
     
     return jsonify({'message': 'Vencedor notificado com sucesso'})
 
 def serve():
-		"""Iniciar servidor gRPC"""
-		server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-		api_pb2_grpc.add_ApiServiceServicer_to_server(ApiServiceImpl(), server)
-		server.add_insecure_port('0.0.0.0:50054')
-		server.start()
-		print("[api_gateway] Servidor gRPC iniciado na porta 50054")
+    try:
+        print("[api_gateway] Criando servidor gRPC...")
+        server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+        api_pb2_grpc.add_ApiServiceServicer_to_server(ApiServiceImpl(), server)
+        server.add_insecure_port('0.0.0.0:50054')
+        server.start()
+        print("[api_gateway] Servidor gRPC iniciado na porta 50054")
+        
+    except Exception as e:
+        print(f"[api_gateway] ERRO ao iniciar servidor gRPC: {e}")
+        import traceback
+        traceback.print_exc()
           
 if __name__ == "__main__":
     threading.Thread(target=serve,daemon=True).start()
