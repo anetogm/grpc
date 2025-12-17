@@ -45,20 +45,10 @@ class LeilaoServiceStub(object):
                 request_serializer=leilao__pb2.ListarLeiloesRequest.SerializeToString,
                 response_deserializer=leilao__pb2.ListarLeiloesResponse.FromString,
                 _registered_method=True)
-        self.RegistrarInteresse = channel.unary_unary(
-                '/leilao.LeilaoService/RegistrarInteresse',
-                request_serializer=leilao__pb2.RegistrarInteresseRequest.SerializeToString,
-                response_deserializer=leilao__pb2.RegistrarInteresseResponse.FromString,
-                _registered_method=True)
-        self.CancelarInteresse = channel.unary_unary(
-                '/leilao.LeilaoService/CancelarInteresse',
-                request_serializer=leilao__pb2.CancelarInteresseRequest.SerializeToString,
-                response_deserializer=leilao__pb2.CancelarInteresseResponse.FromString,
-                _registered_method=True)
-        self.StreamNotificacoes = channel.unary_stream(
-                '/leilao.LeilaoService/StreamNotificacoes',
-                request_serializer=leilao__pb2.StreamNotificacoesRequest.SerializeToString,
-                response_deserializer=leilao__pb2.NotificacaoLeilao.FromString,
+        self.ListarLeiloesEncerrados = channel.unary_unary(
+                '/leilao.LeilaoService/ListarLeiloesEncerrados',
+                request_serializer=leilao__pb2.ListarLeiloesEncerradosRequest.SerializeToString,
+                response_deserializer=leilao__pb2.ListarLeiloesEncerradosResponse.FromString,
                 _registered_method=True)
 
 
@@ -78,19 +68,7 @@ class LeilaoServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def RegistrarInteresse(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def CancelarInteresse(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def StreamNotificacoes(self, request, context):
+    def ListarLeiloesEncerrados(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -109,20 +87,10 @@ def add_LeilaoServiceServicer_to_server(servicer, server):
                     request_deserializer=leilao__pb2.ListarLeiloesRequest.FromString,
                     response_serializer=leilao__pb2.ListarLeiloesResponse.SerializeToString,
             ),
-            'RegistrarInteresse': grpc.unary_unary_rpc_method_handler(
-                    servicer.RegistrarInteresse,
-                    request_deserializer=leilao__pb2.RegistrarInteresseRequest.FromString,
-                    response_serializer=leilao__pb2.RegistrarInteresseResponse.SerializeToString,
-            ),
-            'CancelarInteresse': grpc.unary_unary_rpc_method_handler(
-                    servicer.CancelarInteresse,
-                    request_deserializer=leilao__pb2.CancelarInteresseRequest.FromString,
-                    response_serializer=leilao__pb2.CancelarInteresseResponse.SerializeToString,
-            ),
-            'StreamNotificacoes': grpc.unary_stream_rpc_method_handler(
-                    servicer.StreamNotificacoes,
-                    request_deserializer=leilao__pb2.StreamNotificacoesRequest.FromString,
-                    response_serializer=leilao__pb2.NotificacaoLeilao.SerializeToString,
+            'ListarLeiloesEncerrados': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListarLeiloesEncerrados,
+                    request_deserializer=leilao__pb2.ListarLeiloesEncerradosRequest.FromString,
+                    response_serializer=leilao__pb2.ListarLeiloesEncerradosResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -191,7 +159,7 @@ class LeilaoService(object):
             _registered_method=True)
 
     @staticmethod
-    def RegistrarInteresse(request,
+    def ListarLeiloesEncerrados(request,
             target,
             options=(),
             channel_credentials=None,
@@ -204,63 +172,9 @@ class LeilaoService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/leilao.LeilaoService/RegistrarInteresse',
-            leilao__pb2.RegistrarInteresseRequest.SerializeToString,
-            leilao__pb2.RegistrarInteresseResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def CancelarInteresse(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/leilao.LeilaoService/CancelarInteresse',
-            leilao__pb2.CancelarInteresseRequest.SerializeToString,
-            leilao__pb2.CancelarInteresseResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def StreamNotificacoes(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_stream(
-            request,
-            target,
-            '/leilao.LeilaoService/StreamNotificacoes',
-            leilao__pb2.StreamNotificacoesRequest.SerializeToString,
-            leilao__pb2.NotificacaoLeilao.FromString,
+            '/leilao.LeilaoService/ListarLeiloesEncerrados',
+            leilao__pb2.ListarLeiloesEncerradosRequest.SerializeToString,
+            leilao__pb2.ListarLeiloesEncerradosResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -54,6 +54,14 @@ def get_leiloes():
     print(jsonify(resposta_dict))
     return jsonify(resposta_dict)
 
+@app.get("/leiloes/encerrados")
+def get_leiloes_encerrados():
+    channel = grpc.insecure_channel('localhost:50051')
+    stub = leilao_pb2_grpc.LeilaoServiceStub(channel)
+    leiloes = stub.ListarLeiloesEncerrados(leilao_pb2.ListarLeiloesEncerradosRequest())
+    resposta_dict = MessageToDict(leiloes, preserving_proto_field_name=True)
+    return jsonify(resposta_dict)
+
 @app.get("/cadastra_leilao")
 def cadastra_leilao_page():
     return render_template("cadastra_leilao.html")

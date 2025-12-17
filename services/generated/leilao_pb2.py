@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cleilao.proto\x12\x06leilao\"y\n\x06Leilao\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04nome\x18\x02 \x01(\t\x12\x11\n\tdescricao\x18\x03 \x01(\t\x12\x15\n\rvalor_inicial\x18\x04 \x01(\x01\x12\x0e\n\x06inicio\x18\x05 \x01(\t\x12\x0b\n\x03\x66im\x18\x06 \x01(\t\x12\x0e\n\x06status\x18\x07 \x01(\t\"i\n\x12\x43riarLeilaoRequest\x12\x0c\n\x04nome\x18\x01 \x01(\t\x12\x11\n\tdescricao\x18\x02 \x01(\t\x12\x15\n\rvalor_inicial\x18\x03 \x01(\x01\x12\x0e\n\x06inicio\x18\x04 \x01(\t\x12\x0b\n\x03\x66im\x18\x05 \x01(\t\"j\n\x13\x43riarLeilaoResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x11\n\tleilao_id\x18\x03 \x01(\x05\x12\x1e\n\x06leilao\x18\x04 \x01(\x0b\x32\x0e.leilao.Leilao\"\x16\n\x14ListarLeiloesRequest\"8\n\x15ListarLeiloesResponse\x12\x1f\n\x07leiloes\x18\x01 \x03(\x0b\x32\x0e.leilao.Leilao\"B\n\x19RegistrarInteresseRequest\x12\x11\n\tleilao_id\x18\x01 \x01(\x05\x12\x12\n\ncliente_id\x18\x02 \x01(\t\">\n\x1aRegistrarInteresseResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"A\n\x18\x43\x61ncelarInteresseRequest\x12\x11\n\tleilao_id\x18\x01 \x01(\x05\x12\x12\n\ncliente_id\x18\x02 \x01(\t\"=\n\x19\x43\x61ncelarInteresseResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"T\n\x11NotificacaoLeilao\x12\x0c\n\x04tipo\x18\x01 \x01(\t\x12\x11\n\tleilao_id\x18\x02 \x01(\x05\x12\x1e\n\x06leilao\x18\x03 \x01(\x0b\x32\x0e.leilao.Leilao\"/\n\x19StreamNotificacoesRequest\x12\x12\n\ncliente_id\x18\x01 \x01(\t2\xb2\x03\n\rLeilaoService\x12\x46\n\x0b\x43riarLeilao\x12\x1a.leilao.CriarLeilaoRequest\x1a\x1b.leilao.CriarLeilaoResponse\x12L\n\rListarLeiloes\x12\x1c.leilao.ListarLeiloesRequest\x1a\x1d.leilao.ListarLeiloesResponse\x12[\n\x12RegistrarInteresse\x12!.leilao.RegistrarInteresseRequest\x1a\".leilao.RegistrarInteresseResponse\x12X\n\x11\x43\x61ncelarInteresse\x12 .leilao.CancelarInteresseRequest\x1a!.leilao.CancelarInteresseResponse\x12T\n\x12StreamNotificacoes\x12!.leilao.StreamNotificacoesRequest\x1a\x19.leilao.NotificacaoLeilao0\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cleilao.proto\x12\x06leilao\"y\n\x06Leilao\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04nome\x18\x02 \x01(\t\x12\x11\n\tdescricao\x18\x03 \x01(\t\x12\x15\n\rvalor_inicial\x18\x04 \x01(\x01\x12\x0e\n\x06inicio\x18\x05 \x01(\t\x12\x0b\n\x03\x66im\x18\x06 \x01(\t\x12\x0e\n\x06status\x18\x07 \x01(\t\"i\n\x12\x43riarLeilaoRequest\x12\x0c\n\x04nome\x18\x01 \x01(\t\x12\x11\n\tdescricao\x18\x02 \x01(\t\x12\x15\n\rvalor_inicial\x18\x03 \x01(\x01\x12\x0e\n\x06inicio\x18\x04 \x01(\t\x12\x0b\n\x03\x66im\x18\x05 \x01(\t\"j\n\x13\x43riarLeilaoResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x11\n\tleilao_id\x18\x03 \x01(\x05\x12\x1e\n\x06leilao\x18\x04 \x01(\x0b\x32\x0e.leilao.Leilao\"\x16\n\x14ListarLeiloesRequest\"8\n\x15ListarLeiloesResponse\x12\x1f\n\x07leiloes\x18\x01 \x03(\x0b\x32\x0e.leilao.Leilao\" \n\x1eListarLeiloesEncerradosRequest\"B\n\x1fListarLeiloesEncerradosResponse\x12\x1f\n\x07leiloes\x18\x01 \x03(\x0b\x32\x0e.leilao.Leilao\"T\n\x11NotificacaoLeilao\x12\x0c\n\x04tipo\x18\x01 \x01(\t\x12\x11\n\tleilao_id\x18\x02 \x01(\x05\x12\x1e\n\x06leilao\x18\x03 \x01(\x0b\x32\x0e.leilao.Leilao2\x91\x02\n\rLeilaoService\x12\x46\n\x0b\x43riarLeilao\x12\x1a.leilao.CriarLeilaoRequest\x1a\x1b.leilao.CriarLeilaoResponse\x12L\n\rListarLeiloes\x12\x1c.leilao.ListarLeiloesRequest\x1a\x1d.leilao.ListarLeiloesResponse\x12j\n\x17ListarLeiloesEncerrados\x12&.leilao.ListarLeiloesEncerradosRequest\x1a\'.leilao.ListarLeiloesEncerradosResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -41,18 +41,12 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_LISTARLEILOESREQUEST']._serialized_end=384
   _globals['_LISTARLEILOESRESPONSE']._serialized_start=386
   _globals['_LISTARLEILOESRESPONSE']._serialized_end=442
-  _globals['_REGISTRARINTERESSEREQUEST']._serialized_start=444
-  _globals['_REGISTRARINTERESSEREQUEST']._serialized_end=510
-  _globals['_REGISTRARINTERESSERESPONSE']._serialized_start=512
-  _globals['_REGISTRARINTERESSERESPONSE']._serialized_end=574
-  _globals['_CANCELARINTERESSEREQUEST']._serialized_start=576
-  _globals['_CANCELARINTERESSEREQUEST']._serialized_end=641
-  _globals['_CANCELARINTERESSERESPONSE']._serialized_start=643
-  _globals['_CANCELARINTERESSERESPONSE']._serialized_end=704
-  _globals['_NOTIFICACAOLEILAO']._serialized_start=706
-  _globals['_NOTIFICACAOLEILAO']._serialized_end=790
-  _globals['_STREAMNOTIFICACOESREQUEST']._serialized_start=792
-  _globals['_STREAMNOTIFICACOESREQUEST']._serialized_end=839
-  _globals['_LEILAOSERVICE']._serialized_start=842
-  _globals['_LEILAOSERVICE']._serialized_end=1276
+  _globals['_LISTARLEILOESENCERRADOSREQUEST']._serialized_start=444
+  _globals['_LISTARLEILOESENCERRADOSREQUEST']._serialized_end=476
+  _globals['_LISTARLEILOESENCERRADOSRESPONSE']._serialized_start=478
+  _globals['_LISTARLEILOESENCERRADOSRESPONSE']._serialized_end=544
+  _globals['_NOTIFICACAOLEILAO']._serialized_start=546
+  _globals['_NOTIFICACAOLEILAO']._serialized_end=630
+  _globals['_LEILAOSERVICE']._serialized_start=633
+  _globals['_LEILAOSERVICE']._serialized_end=906
 # @@protoc_insertion_point(module_scope)

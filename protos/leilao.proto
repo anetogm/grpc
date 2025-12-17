@@ -34,6 +34,12 @@ message ListarLeiloesResponse {
     repeated Leilao leiloes = 1;
 }
 
+message ListarLeiloesEncerradosRequest {}
+
+message ListarLeiloesEncerradosResponse {
+    repeated Leilao leiloes = 1;
+}
+
 // Notificações em tempo real
 message NotificacaoLeilao {
     string tipo = 1; // "leilao_iniciado", "leilao_finalizado"
@@ -41,13 +47,9 @@ message NotificacaoLeilao {
     Leilao leilao = 3;
 }
 
-message StreamNotificacoesRequest {
-    string cliente_id = 1;
-}
-
 // Serviço de Leilão
 service LeilaoService {
     rpc CriarLeilao(CriarLeilaoRequest) returns (CriarLeilaoResponse);
     rpc ListarLeiloes(ListarLeiloesRequest) returns (ListarLeiloesResponse);
-    rpc StreamNotificacoes(StreamNotificacoesRequest) returns (stream NotificacaoLeilao);
+    rpc ListarLeiloesEncerrados(ListarLeiloesEncerradosRequest) returns (ListarLeiloesEncerradosResponse);
 }

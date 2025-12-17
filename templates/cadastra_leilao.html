@@ -1,72 +1,156 @@
-<!-- templates/cadastra_leilao.html -->
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Cadastrar Leilão</title>
-    <style>
-        body { font-family: Arial, Helvetica, sans-serif; padding: 20px; background:#f7f7f7; }
-        .container { max-width:600px; margin:0 auto; background:#fff; padding:20px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,.1); }
-        label { display:block; margin-top:12px; font-weight:600; }
-        input, textarea, select { width:100%; padding:8px; margin-top:6px; box-sizing:border-box; border:1px solid #ccc; border-radius:4px; }
-        textarea { min-height:100px; resize:vertical; }
-        .row { display:flex; gap:10px; }
-        .row > * { flex:1; }
-        button { margin-top:16px; padding:10px 14px; background:#0078d4; color:#fff; border:none; border-radius:4px; cursor:pointer; }
-        button:hover { background:#005a9e; }
-        .success-message { color: green; font-weight: bold; margin-top: 10px; padding: 10px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; display: none; }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criar Leilão - Sistema de Leilões</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Cadastrar Leilão</h1>
-        <!-- Mensagem de sucesso -->
-        <div id="successMessage" class="success-message">Leilão adicionado com sucesso!</div>
-        
-        <form id="cadastraLeilaoForm" action="/cadastra_leilao" method="post">
-            <label for="item">Item</label>
-            <input id="item" name="item" type="text" required />
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <h1><i class="fas fa-gavel"></i> Sistema de Leilões</h1>
+                <button class="btn btn-secondary btn-small" onclick="window.location.href='/'">
+                    <i class="fas fa-arrow-left"></i> Voltar
+                </button>
+            </div>
+        </div>
+    </header>
 
-            <label for="descricao">Descrição</label>
-            <textarea id="descricao" name="descricao" required></textarea>
-
-            <div class="row">
-                <div>
-                    <label for="valor_inicial">Preço inicial (R$)</label>
-                    <input id="valor_inicial" name="valor_inicial" type="number" step="0.01" min="0" required />
-                </div>
+    <!-- Main Content -->
+    <main class="container">
+        <div class="form-container">
+            <div class="form-header">
+                <h2><i class="fas fa-plus-circle"></i> Criar Novo Leilão</h2>
+                <p>Preencha os dados abaixo para criar um novo leilão</p>
             </div>
 
-            <div class="row">
-                <div>
-                    <label for="data_inicio">Data/hora início</label>
-                    <input id="inicio" name="inicio" type="datetime-local" required />
+            <form action="/cadastra_leilao" method="POST" class="form-styled">
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="item">
+                            <i class="fas fa-box"></i> Nome do Item *
+                        </label>
+                        <input 
+                            type="text" 
+                            id="item" 
+                            name="item" 
+                            class="form-control" 
+                            required
+                            placeholder="Ex: Notebook Dell Inspiron"
+                        >
+                    </div>
                 </div>
-                <div>
-                    <label for="data_fim">Data/hora término</label>
-                    <input id="fim" name="fim" type="datetime-local" required />
+
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="descricao">
+                            <i class="fas fa-align-left"></i> Descrição
+                        </label>
+                        <textarea 
+                            id="descricao" 
+                            name="descricao" 
+                            class="form-control" 
+                            rows="4"
+                            placeholder="Descreva o item em detalhes..."
+                        ></textarea>
+                    </div>
                 </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="valor_inicial">
+                            <i class="fas fa-dollar-sign"></i> Valor Inicial (R$) *
+                        </label>
+                        <input 
+                            type="number" 
+                            id="valor_inicial" 
+                            name="valor_inicial" 
+                            class="form-control" 
+                            step="0.01"
+                            min="0"
+                            required
+                            placeholder="0.00"
+                        >
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="inicio">
+                            <i class="far fa-clock"></i> Data/Hora de Início *
+                        </label>
+                        <input 
+                            type="datetime-local" 
+                            id="inicio" 
+                            name="inicio" 
+                            class="form-control" 
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="fim">
+                            <i class="far fa-calendar"></i> Data/Hora de Término *
+                        </label>
+                        <input 
+                            type="datetime-local" 
+                            id="fim" 
+                            name="fim" 
+                            class="form-control" 
+                            required
+                        >
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="window.location.href='/'">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check"></i> Criar Leilão
+                    </button>
+                </div>
+            </form>
+
+            <div id="success-message" class="success-message" style="display: none;">
+                <i class="fas fa-check-circle"></i>
+                <h3>Leilão criado com sucesso!</h3>
+                <p>Seu leilão foi cadastrado e estará disponível em breve.</p>
+                <button class="btn btn-primary" onclick="window.location.href='/'">
+                    Ver Leilões
+                </button>
             </div>
-            <button type="submit">Cadastrar Leilão</button>
-        </form>
-        <!-- Botão para voltar à tela inicial -->
-        <p style="margin-top: 20px; text-align: center;">
-            <a href="/" style="text-decoration: none; padding: 10px 14px; background: #28a745; color: #fff; border-radius: 4px;">Voltar para Tela Inicial</a>
-        </p>
-    </div>
+        </div>
+    </main>
 
     <script>
-        // Verifica se há parâmetro 'success' na URL
+        // Verificar sucesso na URL
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('success') === '1') {
-            const message = document.getElementById('successMessage');
-            message.style.display = 'block';  // Mostra a mensagem
-            // Opcional: Esconde após 5 segundos
-            setTimeout(() => {
-                message.style.display = 'none';
-            }, 5000);
+            document.querySelector('.form-styled').style.display = 'none';
+            document.getElementById('success-message').style.display = 'block';
         }
+
+        // Definir valor mínimo para as datas
+        const agora = new Date();
+        agora.setMinutes(agora.getMinutes() - agora.getTimezoneOffset());
+        document.getElementById('inicio').min = agora.toISOString().slice(0, 16);
+        document.getElementById('fim').min = agora.toISOString().slice(0, 16);
+
+        // Validar que fim é depois de início
+        document.getElementById('fim').addEventListener('change', function() {
+            const inicio = new Date(document.getElementById('inicio').value);
+            const fim = new Date(this.value);
+            
+            if (fim <= inicio) {
+                alert('A data de término deve ser posterior à data de início!');
+                this.value = '';
+            }
+        });
     </script>
 </body>
 </html>

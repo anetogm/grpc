@@ -3,12 +3,9 @@ from concurrent import futures
 import time
 from datetime import datetime, timedelta
 import threading
-import requests
-from flask import Flask, jsonify, request
 import generated.leilao_pb2_grpc as leilao_pb2_grpc
 import generated.leilao_pb2 as leilao_pb2
 from generated import lance_pb2_grpc, lance_pb2
-from generated import pagamento_pb2_grpc, pagamento_pb2
 from generated import api_pb2_grpc, api_pb2
 
 inicio = (datetime.now() + timedelta(seconds=2))
@@ -41,8 +38,6 @@ publisher_channel = None
 publisher_lock = threading.Lock()
 
 lock = threading.Lock()
-
-app = Flask(__name__)
 
 class LeilaoServiceImpl(leilao_pb2_grpc.LeilaoServiceServicer):
 	"""Concrete implementation of the Leilao service"""
@@ -93,6 +88,28 @@ class LeilaoServiceImpl(leilao_pb2_grpc.LeilaoServiceServicer):
 		# stream vazio
 		for _ in []:
 			yield _
+	def ListarLeiloesEncerrados(self, request, context):
+		response = leilao_pb2.ListarLeiloesEncerradosResponse()
+		agora = datetime.now()
+		
+		for leilao in leiloes:
+			# Converter string ISO para datetime se necessário
+			fim = leilao['fim']
+			if isinstance(fim, str):
+				fim = datetime.fromisoformat(fim)
+			
+			# Apenas adicionar se o leilão já terminou ou está com status encerrado
+			if fim <= agora or leilao['status'] == 'encerrado':
+				item = response.leiloes.add()
+				item.id = leilao['id']
+				item.nome = leilao['nome']
+				item.descricao = leilao['descricao']
+				item.valor_inicial = leilao['valor_inicial']
+				item.inicio = leilao['inicio']
+				item.fim = leilao['fim']
+				item.status = 'encerrado'
+		
+		return response
 
 def converte_datetime(ativos):
 	res = []

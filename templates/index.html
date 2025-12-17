@@ -1,27 +1,136 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Leilão</title>
-  </head>
-  <body>
-    <h1>Aplicação REST de leilão</h1>
-    <p id="demo">
-      <a href="https://youtu.be/LzIBUT-swd8?si=uhWCpOKoXIceA5Sc" target="_blank">
-        Leilão
-      </a>
-    </p>
-    <button type="button" onclick="buscaLeiloes()">Buscar</button>
-    <button type="button" onclick="window.location.href='/cadastra_leilao'">
-      Criar leilão
-    </button>
-    <button type="button" onclick="window.location.href='/lance'">
-      Fazer Lance
-    </button>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Leilões Online</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <h1><i class="fas fa-gavel"></i> Sistema de Leilões</h1>
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span id="userId">Carregando...</span>
+                </div>
+            </div>
+        </div>
+    </header>
 
-    <hr />
+    <!-- Navigation -->
+    <nav class="nav-container">
+        <div class="container">
+            <div class="nav-buttons">
+                <button class="btn btn-primary" onclick="window.location.href='/cadastra_leilao'">
+                    <i class="fas fa-plus"></i> Criar Leilão
+                </button>
+                <button class="btn btn-secondary" onclick="window.location.href='/pagamento'">
+                    <i class="fas fa-credit-card"></i> Pagamentos
+                </button>
+            </div>
+        </div>
+    </nav>
 
-    <!-- Script principal -->
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('ativos')">
+                <i class="fas fa-fire"></i> Leilões Ativos
+                <span class="badge" id="badge-ativos">0</span>
+            </button>
+            <button class="tab-button" onclick="switchTab('encerrados')">
+                <i class="fas fa-history"></i> Leilões Encerrados
+                <span class="badge" id="badge-encerrados">0</span>
+            </button>
+        </div>
+
+        <!-- Tab Content - Ativos -->
+        <div id="tab-ativos" class="tab-content active">
+            <div class="section-header">
+                <h2>Leilões Ativos</h2>
+                <button class="btn btn-small" onclick="carregarLeiloes()">
+                    <i class="fas fa-sync-alt"></i> Atualizar
+                </button>
+            </div>
+            <div id="leiloes-ativos" class="leiloes-grid">
+                <!-- Leilões ativos serão renderizados aqui -->
+            </div>
+        </div>
+
+        <!-- Tab Content - Encerrados -->
+        <div id="tab-encerrados" class="tab-content">
+            <div class="section-header">
+                <h2>Leilões Encerrados</h2>
+                <button class="btn btn-small" onclick="carregarLeiloesEncerrados()">
+                    <i class="fas fa-sync-alt"></i> Atualizar
+                </button>
+            </div>
+            <div id="leiloes-encerrados" class="leiloes-grid">
+                <!-- Leilões encerrados serão renderizados aqui -->
+            </div>
+        </div>
+
+        <!-- Payment Links Container -->
+        <div id="payment-links-container"></div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Sistema de Leilões - Sistemas Distribuídos</p>
+            <div class="connection-status">
+                <span id="sse-status">
+                    <i class="fas fa-circle"></i> Conectando...
+                </span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Modal de Lance -->
+    <div id="modalLance" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-hand-holding-usd"></i> Fazer Lance</h2>
+                <button class="modal-close" onclick="fecharModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="leilao-info-modal" class="leilao-info-modal">
+                    <!-- Info do leilão será inserida aqui -->
+                </div>
+                <form id="formLance" onsubmit="enviarLance(event)">
+                    <div class="form-group">
+                        <label for="valorLance">
+                            <i class="fas fa-dollar-sign"></i> Valor do Lance (R$)
+                        </label>
+                        <input 
+                            type="number" 
+                            id="valorLance" 
+                            name="valorLance" 
+                            step="0.01" 
+                            min="0" 
+                            required 
+                            placeholder="Digite o valor do lance"
+                            class="form-control"
+                        >
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="fecharModal()">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-gavel"></i> Enviar Lance
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/script.js"></script>
-  </body>
+</body>
 </html>
